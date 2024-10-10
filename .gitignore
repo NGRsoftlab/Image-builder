@@ -1,0 +1,35 @@
+# Log file format
+log/*
+
+# Test modules log
+modules/core/log/*
+.gitlab/tests/log
+verbose.log
+
+# Disable mess txt
+save_pid.txt
+
+# Ignore custome settings file
+settings-custom.sh
+
+# Ignore tree maker
+tree-md.sh
+
+# Ignore backup conf archive
+conf.tgz
+
+# Ignore coverage tests folder
+coverage/*
+
+# Ignore tmp archives
+tmp/*tar
+tmp/*gz
+tmp/back-dist
+
+# Ignore test files
+test.sh
+
+# Ignore none tpl file
+configuration/docker/sql-scripts/auth_db_public_licenses.sql
+configuration/docker/.env
+configuration/tpl/hosts
