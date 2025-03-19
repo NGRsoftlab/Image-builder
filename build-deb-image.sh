@@ -59,40 +59,159 @@ fi
 ## FUNCTIONS
 ##
 
-## Style format
-__tty_escape() { printf "\033[%sm" "${1}"; }
-__tty_mkbold() { __tty_escape "1;${1}"; }
-__time() { date +%F' '%T; }
+#############################################
+# Style format
+# ARGUMENTS:
+#   $1, it is receive style format (int)
+# OUTPUTS:
+#   Return to ANSI style with format \033[FORMAT;COLORm
+#############################################
+tty_escape() { printf "\033[%sm" "${1}"; }
 
-## Logger info
-__info() {
-  echo
-  echo -n "[timestamp: ${__tty_blue}$(__time)${__tty_reset}] [level: ${__tty_green}INFO${__tty_reset}] "
-  echo -e "$@"
+#############################################
+# Bold style colors
+# ARGUMENTS:
+#   $1, it is receive color (int)
+# OUTPUTS:
+#   Return to ANSI color with format \033[BOLD;COLORm
+#############################################
+tty_mkbold() { tty_escape "1;${1}"; }
+
+#############################################
+# Date format
+# OUTPUTS:
+#   Return to dynamic actual date format YYYY-MM-DD HH:MM:SS
+#############################################
+# shellcheck disable=SC2317  # Don't warn about unreachable commands in this file
+logger_time() { date +%F' '%T; }
+
+## Definite color variables
+logger_tty_reset="$(tty_escape 0)"
+logger_tty_red="$(tty_mkbold 31)"
+logger_tty_green="$(tty_mkbold 32)"
+logger_tty_yellow="$(tty_mkbold 33)"
+logger_tty_blue="$(tty_mkbold 34)"
+
+#############################################
+## Log the given message at the given level.
+#############################################
+# Log template for all received.
+# All logs are written to stdout with a timestamp.
+# ARGUMENTS:
+#   $1, the level with specific color style
+# OUTPUTS:
+#   Write to stdout
+#############################################
+logger_template() {
+  local TIMESTAMP LEVELNAME COLOR TABS
+  TIMESTAMP=$(logger_time)
+  LEVELNAME="${1}"
+
+  ## Prepare actions
+  case "${LEVELNAME}" in
+    "INFO")
+      COLOR="${logger_tty_green}"
+      TABS=0
+      ;;
+    "WARNING")
+      COLOR="${logger_tty_yellow}"
+      TABS=0
+      ;;
+    "ERROR")
+      COLOR="${logger_tty_red}"
+      TABS=0
+      ;;
+    *)
+      echo "[timestamp: $(date +%F' '%T)] [level: ERROR] undefined log name"
+      exit 1
+      ;;
+  esac
+
+  ## Translation to the left side of the received log name argument
+  shift 1
+
+  ## STDOUT
+  printf "[timestamp ${logger_tty_blue}${TIMESTAMP}${logger_tty_reset}] [levelname ${COLOR}${LEVELNAME}${logger_tty_reset}] %${TABS}s %s\n" "$*"
 }
 
-## Logger warnning
-__warning() {
-  echo
-  echo -n "[timestamp: ${__tty_blue}$(__time)${__tty_reset}] [level: ${__tty_yellow}WARNING${__tty_reset}] " >&2
-  echo "$@" >&2
+#############################################
+# Log the given message at level, INFO
+# ARGUMENTS:
+#   $*, the info text to be printed
+# OUTPUTS:
+#   Write to stdout
+#############################################
+logger_info_message() {
+  local MESSAGE="$*"
+  logger_template "INFO" "${MESSAGE}"
 }
 
-## Logger error
-__error() {
-  echo
-  echo -n "[timestamp: ${__tty_blue}$(__time)${__tty_reset}] [level: ${__tty_red}ERROR${__tty_reset}] " >&2
-  echo "$@" >&2
+#############################################
+# Log the given message at level, WARNING
+# ARGUMENTS:
+#   $*, the warning text to be printed
+# OUTPUTS:
+#   Write to stdout
+#############################################
+logger_warning_message() {
+  local MESSAGE="$*"
+  logger_template "WARNING" "${MESSAGE}"
 }
 
-## Check programs on exists
-__pakcage_exists() {
-  local PKG_LIST=("$@")
-  local PKG_MISSING=false
+#############################################
+# Log the given message at level, ERROR
+# ARGUMENTS:
+#   $*, the error text to be printed
+# OUTPUTS:
+#   Write to stdout
+#############################################
+logger_error_message() {
+  local MESSAGE="$*"
+  logger_template "ERROR" "${MESSAGE}"
+}
+
+#############################################
+# Log the given message at level, ERROR
+# ARGUMENTS:
+#   $*, the fail text to be printed
+# OUTPUTS:
+#   Write to stdout and exit with status 1
+#############################################
+logger_fail() {
+  logger_error_message "$*"
+  exit 1
+}
+
+#############################################
+# Repeats a separator a specified number of times
+# ARGUMENTS:
+#   $1, it is separator (string)
+#   $2, it is how much repeat ${PATTERN} (integer)
+# OUTPUTS:
+#   Write to stdout
+#############################################
+__decor() {
+  local PATTERN REPEAT
+  PATTERN="${1}"
+  REPEAT="${2}"
+  seq -s"${PATTERN}" "${REPEAT}" | tr -d '[:digit:]'
+}
+
+#############################################
+# Check programs on exists
+# ARGUMENTS:
+#   $@, packages list (array)
+# OUTPUTS:
+#   Write to stdout if error and exit with 127 code
+#############################################
+__package_exists() {
+  local PKG_LIST PKG_MISSING
+  PKG_LIST=("$@")
+  PKG_MISSING=false
 
   for required_pkg in "${PKG_LIST[@]}"; do
     if ! dpkg -l "${required_pkg}" >/dev/null 2>/dev/null; then
-      __warning "please install package - ${required_pkg}"
+      logger_warning_message "please install package - ${required_pkg}"
       PKG_MISSING=true
     fi
   done
@@ -102,31 +221,45 @@ __pakcage_exists() {
   fi
 }
 
-## Trap function
+#############################################
+# Trap function
+# OUTPUTS:
+#   Trap any exit signal and write to stdout
+#############################################
 # shellcheck disable=SC2317
 __cleanup() {
   ## When terminated by Ctrl-C
-  __warning "recived EXIT signal"
+  logger_warning_message "recived EXIT signal"
 
   ## Change directory
-  __info "back to ${HOME}"
+  logger_info_message "back to ${HOME}"
   pushd "${HOME}" >/dev/null || true
 
   ## Debootstrap leaves mounted /proc and /sys folders in chroot
-  __info "unmount existings folders"
+  logger_info_message "unmount existings folders"
   umount "${ROOTFS_DIR}/proc" "${ROOTFS_DIR}/sys" >/dev/null 2>/dev/null || true
 
   ## Remove temp dir
-  __info "cleanup temp files"
+  logger_info_message "cleanup temp files"
   rm -r "${ROOTFS_DIR}"
 }
 
-## Check platform
+#############################################
+# Check platform type
+# RETURN:
+#   True(0) or False(1)
+#############################################
 __use_qemu_static() {
   [[ "${PLATFORM}" == "arm64" && ! ("$(uname -m)" == *arm* || "$(uname -m)" == *aarch64*) ]]
 }
 
-## Rootfs exec
+#############################################
+# Rootfs exec
+# ARGUMENTS:
+#   $@, command list (array)
+# OUTPUTS:
+#   Write to stdout
+#############################################
 __rootfs_chroot() {
   ## Get path to "chroot" in our current PATH
   local CHROOT_PATH
@@ -137,7 +270,11 @@ __rootfs_chroot() {
   PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' "${CHROOT_PATH}" "${ROOTFS_DIR}" "$@"
 }
 
-## Set source list depending on operating system
+#############################################
+# Set source list depending on operating system
+# OUTPUTS:
+#   Write to stdout, if error - exit with 128 code
+#############################################
 __set_source_list() {
   ## Set source list
   case "${TAG}" in
@@ -150,19 +287,24 @@ __set_source_list() {
       echo "deb ${REPO_URL}-${TAG}-update/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
       ;;
     *)
-      __error "unsupported OS"
+      logger_error_message "unsupported OS"
       exit 128
       ;;
   esac
 
-  __info "check source list:\n$(cat "${ROOTFS_DIR}/etc/apt/sources.list")"
+  logger_info_message "check source list:"
+  logger_info_message "$(cat "${ROOTFS_DIR}/etc/apt/sources.list")"
 }
 
-## Add tweaks for compare image w/ small size
+#############################################
+# Add tweaks for compare image w/ small size
+# OUTPUTS:
+#   Write to stdout
+#############################################
 __docker_tweaks() {
   local APT_GET_CLEAN
 
-  __info "applying docker-specific tweaks"
+  logger_info_message "applying docker-specific tweaks"
   ## These are copied from the docker contrib/mkimage/debootstrap script.
   ## Modifications:
   ##  - remove `strings` check for applying the --force-unsafe-io tweak.
@@ -286,7 +428,7 @@ path-exclude /usr/share/linda/*
 EOF
   fi
 
-  ## Create package install script for additional install, use in image `install_package nginx`
+  ## Create package install script for additional install, use in image `install_packages nginx`
   cat >"${ROOTFS_DIR}/usr/sbin/install_packages" <<-'EOF'
 #!/bin/sh
 set -e
@@ -322,7 +464,11 @@ EOF
   __rootfs_chroot getent passwd | cut -d: -f1 | xargs -n 1 chroot "${ROOTFS_DIR}" chage -d 17885 && cp "${ROOTFS_DIR}/etc/shadow" "${ROOTFS_DIR}/etc/shadow-"
 }
 
-## Function with remove cache and mess docs
+#############################################
+# Remove cache and mess docs
+# OUTPUTS:
+#   Write to stdout
+#############################################
 __remove_cache() {
   local USR_BIN_MODIFICATION_TIME
 
@@ -344,7 +490,7 @@ __remove_cache() {
   BUILD_DATE="$(find "${ROOTFS_DIR}/usr/share/doc" -name changelog.Debian.gz -print0 | xargs -0 -n1 -I{} dpkg-parsechangelog -SDate -l'{}' | xargs -l -i date --date="{}" +%s | sort -n | tail -n 1 || echo '')"
   set -o pipefail
 
-  __info "trimming down"
+  logger_info_message "trimming down"
   for DIR in "${DIRS_TO_TRIM[@]}"; do
     rm -r "${ROOTFS_DIR:?ROOTFS_DIR cannot be empty}/${DIR}"/*
   done
@@ -371,23 +517,28 @@ __remove_cache() {
   rm -rf "${ROOTFS_DIR}/var/cache/man/"*
   rm -rf "${ROOTFS_DIR}/usr/share/man/"*
 
-  __info "total size: $(du -skh "${ROOTFS_DIR}")"
-  __info "package sizes"
+  logger_info_message "total size: $(du -skh "${ROOTFS_DIR}")"
+  logger_info_message "package sizes"
   ## These aren't shell variables, this is a template, so override sc thinking these are the wrong type of quotes
   # shellcheck disable=SC2016
   __rootfs_chroot dpkg-query -W -f '${Package} ${Installed-Size}\n'
-  __info "largest dirs\n$(du "${ROOTFS_DIR}" | sort -n | tail -n 20)"
-  __info "built in ${ROOTFS_DIR}"
+  logger_info_message "largest dirs:"
+  logger_info_message "$(du "${ROOTFS_DIR}" | sort -n | tail -n 20)"
+  logger_info_message "built in ${ROOTFS_DIR}"
 
   if __use_qemu_static; then
-    __info "cleaning up qemu static files from image"
+    logger_info_message "cleaning up qemu static files from image"
     USR_BIN_MODIFICATION_TIME=$(stat -c %y "${ROOTFS_DIR}"/usr/bin)
     rm -rf "${ROOTFS_DIR}"/usr/bin/qemu-*-static
     touch -d "${USR_BIN_MODIFICATION_TIME}" "${ROOTFS_DIR}"/usr/bin
   fi
 }
 
-## Import custome image with created manifest, return image id
+#############################################
+# Import custom image with created manifest, return image id
+# RETURN:
+#   Image id
+#############################################
 __import() {
   local LAYERSUM TDIR CONF CONF_SHA MANIFEST ID
 
@@ -418,9 +569,8 @@ __import() {
 
   ID=$(docker load -i "${TDIR}/import.tar" | awk '{print $4}')
 
-  if [ "${ID}" != "sha256:${CONF_SHA}" ]; then
-    __error "failed to load ${ID} correctly, expected id to be ${CONF_SHA}, source in ${TDIR}"
-    exit 1
+  if [[ "${ID}" != "sha256:${CONF_SHA}" ]]; then
+    logger_fail "failed to load ${ID} correctly, expected id to be ${CONF_SHA}, source in ${TDIR}"
   fi
 
   ## Cleanup temp dir
@@ -430,34 +580,63 @@ __import() {
   echo "${ID}"
 }
 
-## Test description show
+#############################################
+# Test description show
+# ARGUMENTS:
+#   $*, test list (array)
+# OUTPUTS:
+#   Write to stdout
+#############################################
 __desc() {
-  __info "TEST: $*"
-  echo "==================================================="
+  logger_info_message "TEST: $*"
+  __decor "=" "200"
 }
 
-## Test base
+#############################################
+# Test base
+# ARGUMENTS:
+#   $1, additional argument to docker (string)
+#   $@, commands list to to docker image (array)
+# OUTPUTS:
+#   Write to stdout
+#############################################
 __test_extra_args() {
   local EXTRA_ARGS="${1}"
   shift
   # shellcheck disable=SC2086
   docker run "${DOCKER_PLATFORM_ARGS[@]}" --rm "${BIND_MOUNTS[@]}" ${EXTRA_ARGS} -e DEBIAN_FRONTEND=noninteractive "${IMAGE}" "$@"
-  __info "TEST: OK"
-  echo "***************************************************"
+  logger_info_message "TEST: OK"
+  __decor "*" "200"
 }
 
-## Test args
+#############################################
+# Test args without additional argument to docker
+# ARGUMENTS:
+#   $@, commands list to to docker image (array)
+# OUTPUTS:
+#   Write to stdout
+#############################################
 __test_args() {
   __test_extra_args "" "$@"
 }
 
-## Shadow file check
+#############################################
+# Check shadow file
+# ARGUMENTS:
+#   $1, path where placed shadow file (string)
+# OUTPUTS:
+#   Write to stdout
+#############################################
 __shadow_check() {
   local PATH_SH="${1}"
   __test_args bash -c "(! cut -d: -f3 < ${PATH_SH} | grep -v 17885 >/dev/null) || (cat ${PATH_SH} && false)"
 }
 
-## Synthetic tests
+#############################################
+# Synthetic tests
+# OUTPUTS:
+#   Write to stdout
+#############################################
 _test() {
   local BIND_MOUNTS DOCKER_PLATFORM_ARGS MYSQL_PACKAGE
   MYSQL_PACKAGE='default-mysql-server'
@@ -466,9 +645,9 @@ _test() {
 
   if [[ "${PLATFORM}" == "arm64" ]]; then
     if [[ "$(uname -m)" == *arm* || "$(uname -m)" == *aarch64* ]]; then
-      __info "running in arm host. QEMU is not needed"
+      logger_info_message "running in arm host. QEMU is not needed"
     else
-      __info "setting up qemu static"
+      logger_info_message "setting up qemu static"
       for qemu_static_file in /usr/bin/qemu-*-static; do
         BIND_MOUNTS+=(-v="${qemu_static_file}:${qemu_static_file}")
       done
@@ -487,7 +666,7 @@ _test() {
     # shellcheck disable=SC2016
     __test_args bash -c 'echo "$(uname -m)" && [[ "$(uname -m)" == *arm* || "$(uname -m)" == *aarch64* ]]'
   else
-    __info "unknown platform ${PLATFORM}" >&2
+    logger_info_message "unknown platform ${PLATFORM}" >&2
     exit 129
   fi
 
@@ -536,7 +715,11 @@ _test() {
   __shadow_check /etc/shadow-
 }
 
-## Help menu
+#############################################
+# Help menu
+# OUTPUTS:
+#   Write to stdout
+#############################################
 _usage() {
   cat <<EOF
 
@@ -557,7 +740,7 @@ ARGUMENTS LIST:
         -c CODENAME       codename (specified in ${REPO_URL:="https://pr.ngrsoftlab.ru/repository/astra-cache"}/dists)
         -r REPOSITORY     address of the repository
         -i IMAGE_NAME     name of the image being created
-        -p PLATFORM       platform (based on dpkg --print-architecture comand)
+        -p PLATFORM       platform (based on dpkg --print-architecture command)
 
 AUTHOR:
         Written by ${COMPANY_NAME}.
@@ -568,8 +751,8 @@ EOF
 ## MAIN SCRIPT
 ##
 
-PROGRAM=$(basename "${0}")
-VERSION='v1.0.0'
+[[ -n ${PROGRAM} ]] || PROGRAM=$(basename "${0}")
+[[ -n ${VERSION} ]] || VERSION='v1.0.0'
 COMPANY_NAME='NGRSoftlab'
 readonly PROGRAM VERSION COMPANY_NAME
 
@@ -597,8 +780,7 @@ while getopts 't:c:r:p:i:dhv' OPTION; do
       DEBUG='ON'
       ;;
     v)
-      echo -e "Name: \t\t${PROGRAM}"
-      echo -e "Version: \t${VERSION}"
+      printf "%s (%s) %s" "${PROGRAM}" "${COMPANY_NAME}" "${VERSION}"
       exit 0
       ;;
     h)
@@ -629,18 +811,14 @@ export TAG CODENAME PLATFORM REPO_URL IMAGE DEBIAN_FRONTEND DEBUG DOCKER_SAVE_AC
 main() {
   local TIMESTAMP USR_BIN_MODIFICATION_TIME CONF_TEMPLATE MANIFEST_TEMPLATE BUILD_DIR BUILD_REPO TARGET DIRS_TO_TRIM DEBOOTSTRAP_ARCH_ARGS BUILT_IMAGE_ID
 
-  ## Def color
-  __tty_reset="$(__tty_escape 0)"
-  __tty_red="$(__tty_mkbold 31)"
-  __tty_green="$(__tty_mkbold 32)"
-  __tty_yellow="$(__tty_mkbold 33)"
-  __tty_blue="$(__tty_mkbold 34)"
-
   ## Check user id (must be 0)
-  [[ "$(id -u)" -eq 0 ]] || (
-    __error "this script must be run by root"
-    exit 1
-  )
+  [[ "$(id -u)" -eq 0 ]] || logger_fail "this script must be run by root"
+
+  ## Get OS ID
+  OS_ID=$(awk -F'=' '$1=="ID" { print $2 ;}' /etc/os-release)
+
+  ## Check running script on Astra OS
+  [[ ${OS_ID,,} == 'astra' ]] || logger_fail "required AstraOS for script, but running on '${OS_ID}'"
 
   ## Set debug
   case "${DEBUG}" in
@@ -664,7 +842,7 @@ main() {
       set -x
       ;;
     [Oo][Ff][Ff])
-      __info "debug disable"
+      logger_info_message "debug disable"
       ;;
   esac
 
@@ -696,32 +874,31 @@ main() {
       DEBOOTSTRAP_ARCH_ARGS+=("--components=main,contrib,non-free")
       ;;
     *)
-      __error "unsupported OS type"
+      logger_error_message "unsupported OS type"
       exit 128
       ;;
   esac
 
   ## Check packages on exists
-  __pakcage_exists "docker.io" "debootstrap"
+  __package_exists "docker.io" "debootstrap"
 
   trap __cleanup EXIT
 
   ## Create temp rootfs dir
   ROOTFS_DIR=$(mktemp -d)
-  __info "building base in ${ROOTFS_DIR}"
+  logger_info_message "building base in ${ROOTFS_DIR}"
 
   ## Create minimal image
   debootstrap "${DEBOOTSTRAP_ARCH_ARGS[@]}" "${CODENAME}" "${ROOTFS_DIR}" "${BUILD_REPO}"
 
   ## Check qemu static
   if __use_qemu_static; then
-    __info "setting up qemu static in chroot"
+    logger_info_message "setting up qemu static in chroot"
     USR_BIN_MODIFICATION_TIME=$(stat -c %y "${ROOTFS_DIR}"/usr/bin)
     if [[ -f "/usr/bin/qemu-aarch64-static" ]]; then
       find /usr/bin/ -type f -name 'qemu-*-static' -exec cp {} "${ROOTFS_DIR}"/usr/bin/. \;
     else
-      __error "cannot find aarch64 qemu static. Aborting..."
-      exit 1
+      logger_fail "cannot find aarch64 qemu static. Aborting..."
     fi
     touch -d "${USR_BIN_MODIFICATION_TIME}" "${ROOTFS_DIR}"/usr/bin
   fi
@@ -735,13 +912,32 @@ main() {
   __rootfs_chroot apt-get autoremove -y
   __rootfs_chroot dpkg -l | tee "${TAG}.manifest"
 
+  ## Reduse image size by switch link on perl
+  __rootfs_chroot find "/usr/bin/" -wholename "/usr/bin/perl5*" -exec ln -fsv perl {} ';'
+
+  ## Reduse image size by delete mess on apt dir
+  __rootfs_chroot find /var/cache/apt/ ! -type d ! -name 'lock' -delete
+  __rootfs_chroot find /var/lib/apt/ ! -type d -wholename '/var/lib/apt/listchanges*' -delete
+  __rootfs_chroot find /var/lib/apt/lists/ ! -type d ! -name 'lock' -delete
+  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/apt/*' -delete
+  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/aptitude*' -delete
+  __rootfs_chroot find /var/tmp/ ! -type d -ls -delete
+
+  ## Reduse image size by delete mess on dpkg dir
+  __rootfs_chroot truncate -s 0 "/var/lib/dpkg/available"
+  __rootfs_chroot find "/var/lib/dpkg/" ! -type d -wholename "/var/lib/dpkg/*-old" -delete
+  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/alternatives.log' -delete
+  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/dpkg.log' -delete
+  __rootfs_chroot find "/var/lib/dpkg/" ! -type d -wholename "/var/lib/dpkg/info/*.symbols" -delete
+  __rootfs_chroot find /var/cache/debconf/ ! -type d -wholename '/var/cache/debconf/*-old' -delete
+
   ## Call tweak to set min docker opt
   __docker_tweaks
 
   ## Call remove cache and doc options
   __remove_cache
 
-  __info "total size chroot after actions: $(du -sh "${ROOTFS_DIR}")"
+  logger_info_message "total size chroot after actions: $(du -sh "${ROOTFS_DIR}")"
 
   ## Remove image if exists
   docker rmi "${IMAGE}" 2>/dev/null || true
@@ -766,10 +962,12 @@ main() {
       ;;
   esac
 
-  __info "docker image has been generated: ${IMAGE}"
+  logger_info_message "docker image has been generated: ${IMAGE}"
 
   ## Run synt test
   _test
+
+  logger_info_message "$(date -ud "@${SECONDS}" "+time elapsed: %H:%M:%S")"
 
   ## Trigger trap function
   exit 0

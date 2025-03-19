@@ -14,10 +14,10 @@ Cкрипт по сборке образов Astra Linux. Взяты за осн
   - [Description](#description)
   - [Contents](#contents)
   - [Requirements](#requirements)
-  - [What it is](#what-it-is)
-  - [Why use product?](#why-use-product)
+  - [What is it](#what-is-it)
+  - [Why to use this product?](#why-to-use-this-product)
   - [Project variables](#project-variables)
-  - [How work with](#how-work-with)
+  - [How to work with](#how-to-work-with)
   - [Issues and solutions](#issues-and-solutions)
 
 ## [Requirements](#contents)
@@ -27,7 +27,7 @@ Cкрипт по сборке образов Astra Linux. Взяты за осн
 - docker.io
 - debootstrap
 
-## [What it is](#contents)
+## [What is it](#contents)
 
 Скрипт по сборке образов на основе Astra Linux. Что умеет:
 
@@ -37,7 +37,7 @@ Cкрипт по сборке образов Astra Linux. Взяты за осн
 - [x] Собирать образы с произвольным тегом + именем
 - [x] Проводить синтетические тесты
 
-## [Why use product?](#contents)
+## [Why to use this product?](#contents)
 
 - Этот образ призван обеспечить хороший баланс между небольшими образами и наличием множества базовых пакетов для легкой интеграции.
 - Образ основан на `glibc` для широкой совместимости и подходит для доступа к большому количеству пакетов. Чтобы уменьшить размер образа, удалены некоторые вещи, которые не требуются в контейнерах:
@@ -67,7 +67,7 @@ $ install_packages apache2 memcached
 | `DEBUG` | OFF | string | Параметр включения/отключения отладки. |
 | `TAG` | "" | string | Тэг задаваемого образа. |
 
-## [How work with](#contents)
+## [How to work with](#contents)
 
 ```shell
 ## Вызов справки
@@ -96,7 +96,7 @@ export DOCKER_SAVE_ACTION=load
 - `md5sum` проверка файла
 
 ```shell
-echo "0f68fb660356c3f176dffd50e268778f  build-deb-image.sh" | md5sum -c -
+echo "c9c93b97477e10d221d2f55c6d95f625  build-deb-image.sh" | md5sum -c -
 ```
 
 ## [Issues and solutions](#contents)
