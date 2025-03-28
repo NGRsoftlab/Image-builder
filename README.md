@@ -1,12 +1,14 @@
+<!-- markdownlint-disable MD033 MD041 -->
 <p><img src="https://static.tildacdn.com/tild3733-3430-4331-a637-336233396534/logo.svg" alt="NGRSOFTLAB logo" title="NGR" align="right" height="60" /></p>
+<!-- markdownlint-enable MD033 MD041 -->
 
 # Image builder
 
-[![Image builder](https://img.shields.io/badge/image-builder-blue.svg)](https://gitlab.ngrsoftlab.ru/multicheck/infra/autoinstall)
+![Image builder](https://img.shields.io/badge/image-builder-blue.svg)
 
 ## Description
 
-Cкрипт по сборке образов Astra Linux. Взяты за основу [статья по сборке на докера на Astra](https://wiki.astralinux.ru/pages/viewpage.action?pageId=137563067), [minideb](https://github.com/bitnami/minideb) от Bitnami и скрипт от [@g.sorokin](https://gitlab.ngrsoftlab.ru/ngr-service/docker-images/astra/-/blob/master/astra-debootstrap/build-image.sh?ref_type=heads)
+Cкрипт по сборке образов Astra Linux. Взяты за основу [статья по сборке на докера на Astra](https://wiki.astralinux.ru/pages/viewpage.action?pageId=137563067), [minideb](https://github.com/bitnami/minideb) от Bitnami и скрипты от команды NGRSoftlab
 
 ## Contents
 
@@ -14,9 +16,10 @@ Cкрипт по сборке образов Astra Linux. Взяты за осн
   - [Description](#description)
   - [Contents](#contents)
   - [Requirements](#requirements)
-  - [What is it](#what-is-it)
+  - [What it is](#what-it-is)
   - [Why to use this product?](#why-to-use-this-product)
   - [Project variables](#project-variables)
+  - [Supported version](#supported-version)
   - [How to work with](#how-to-work-with)
   - [Issues and solutions](#issues-and-solutions)
 
@@ -27,11 +30,11 @@ Cкрипт по сборке образов Astra Linux. Взяты за осн
 - docker.io
 - debootstrap
 
-## [What is it](#contents)
+## [What it is](#contents)
 
 Скрипт по сборке образов на основе Astra Linux. Что умеет:
 
-- [x] Собирать образы на основе  1.7.3, 1.7.4, 1.7.5, 1.7.x (latest updated version), 1.8.1, 1.8.x (latest updated version)
+- [x] Собирать образы на основе  1.7.2 - 1.7.x (latest updated version), 1.8.1 - 1.8.x (latest updated version)
 - [x] Собирать образы на основе архитектуры
 - [x] Собирать образы на основе прокси и вшивать прокси внуть образа (аля Nexus)
 - [x] Собирать образы с произвольным тегом + именем
@@ -60,12 +63,25 @@ $ install_packages apache2 memcached
 |     Имя     | Значение по умолчанию | Тип | Описание |
 |     :---    |         :----:        |  :----:  |   ---:   |
 | `DOCKER_SAVE_ACTION` | import | string | Тип загрузки образа(может быть `load/import`). |
-| `CODENAME` | stable | string | Имя сборки(для астры можно использовать `1.7_x86-64/1.8_x86-64`). |
-| `REPO_URL` | `https://pr.ngrsoftlab.ru/repository/astra-cache` | string | Путь до прокси реджестри/репозитория с которым будет работать образ. |
+| `CODENAME` | stable | string | [Имя сборки](https://wiki.astralinux.ru/pages/viewpage.action?pageId=137563146)(для астры можно использовать `1.7_x86-64/1.8_x86-64`). В качестве проверки можно использовать эту команду `awk -F'=' '$1=="VERSION_CODENAME" { print $2 ;}' /etc/os-release`. |
+| `REPO_URL` | "" | string | Путь до прокси реджестри/репозитория с которым будет работать образ. |
 | `PLATFORM` | `$(dpkg --print-architecture)` | string | Архитектура системы. |
 | `IMAGE_NAME` | astra | string | Имя образа. |
 | `DEBUG` | OFF | string | Параметр включения/отключения отладки. |
 | `TAG` | "" | string | Тэг задаваемого образа. |
+
+## [Supported version](#contents)
+
+| Кодовое имя | Версия |
+|   :----:   | :----: |
+| 1.7_x86-64 | 1.7.x |
+| 1.7_x86-64 | 1.7.6 |
+| 1.7_x86-64 | 1.7.5 |
+| 1.7_x86-64 | 1.7.4 |
+| 1.7_x86-64 | 1.7.3 |
+| 1.7_x86-64 | 1.7.2 |
+| 1.8_x86-64 | 1.8.x |
+| 1.8_x86-64 | 1.8.1 |
 
 ## [How to work with](#contents)
 
@@ -76,27 +92,31 @@ $ install_packages apache2 memcached
 ## Посмотреть версию
 ./build-astra-image.sh -v
 
-## Собрать образ с минимальными параметрами
+## Собрать образ с минимальными параметрами для 1.7.5
 ./build-astra-image.sh -t 1.7.5 \
-                      -c 1.7_x86-64
+                      -c 1.7_x86-64 \
+                      -r https://download.astralinux.ru/astra/frozen/1.7_x86-64/1.7.5/repository
 
-## Cобрать образ с отладкой(дебагом)
+## Cобрать образ с отладкой(дебагом) для 1.8.1
 ./build-astra-image.sh -t 1.8.1 \
                       -c 1.8_x86-64 \
+                      -r https://dl.astralinux.ru/astra/frozen/1.8_x86-64/1.8.1/repository \
                       -d
 
 ## Для загрузки образа можно использовать 2 метода - load и import
 ## По умолчанию используется import, но можно переопределить
-## Чем отличаются
 export DOCKER_SAVE_ACTION=load
+
+## Собрать образ с минимальными параметрами для 1.8.1 rolling release
 ./build-astra-image.sh -t 1.8.1 \
-                      -c 1.8_x86-64
+                      -c 1.8_x86-64 \
+                      -r https://download.astralinux.ru/astra/stable/1.8_x86-64/repository
 ```
 
 - `md5sum` проверка файла
 
 ```shell
-echo "c9c93b97477e10d221d2f55c6d95f625  build-deb-image.sh" | md5sum -c -
+echo "05fcaadff8f1379d4170db22de311844  build-deb-image.sh" | md5sum -c -
 ```
 
 ## [Issues and solutions](#contents)

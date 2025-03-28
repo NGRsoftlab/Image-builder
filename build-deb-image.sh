@@ -4,7 +4,7 @@
 ## DESCRIPTION
 ##   This script can create images based on Astra Linux (Debian-like system).
 ##   To run you need to have docker.io and debootstrap. The following system
-##   versions are supported: 1.7.3, 1.7.4, 1.7.5, 1.7.x (latest updated version),
+##   versions are supported: 1.7.2, 1.7.3, 1.7.4, 1.7.5, 1.7.6, 1.7.x (latest updated version),
 ##   1.8.1, 1.8.x (latest updated version)
 
 ## EXAMPLE USAGE
@@ -12,6 +12,7 @@
 ##   Build specific image
 ##   ./build-astra-image.sh -t 1.7.2 \
 ##                          -c 1.7_x86-64 \
+##                          -r https://dl.astralinux.ru/astra/frozen/1.7_x86-64/1.7.2/repository \
 ##                          -i my-astra-image-name
 
 ## ISSUES & SOLUTIONS
@@ -45,7 +46,7 @@
 ##   exit code 127
 ##     Utility not found; you must install it because this script depends on it
 ##   exit code 128
-##     Unsupported distibution version
+##     Unsupported distribution version
 ##   exit code 129
 ##     Unknown platform arch
 
@@ -279,12 +280,12 @@ __set_source_list() {
   ## Set source list
   case "${TAG}" in
     1.8.x | 1.8.1)
-      echo "deb ${REPO_URL}-${TAG}-extended/ 1.8_x86-64 main contrib non-free non-free-firmware" >>"${ROOTFS_DIR}/etc/apt/sources.list"
+      echo "deb ${REPO_URL}-extended/ 1.8_x86-64 main contrib non-free non-free-firmware" >>"${ROOTFS_DIR}/etc/apt/sources.list"
       ;;
-    1.7.x | 1.7.5 | 1.7.4 | 1.7.3)
-      echo "deb ${REPO_URL}-${TAG}-base/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
-      echo "deb ${REPO_URL}-${TAG}-extended/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
-      echo "deb ${REPO_URL}-${TAG}-update/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
+    1.7.x | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
+      echo "deb ${REPO_URL}-base/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
+      echo "deb ${REPO_URL}-extended/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
+      echo "deb ${REPO_URL}-update/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
       ;;
     *)
       logger_error_message "unsupported OS"
@@ -380,7 +381,7 @@ EOF
     cat >"${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-no-languages" <<-'EOF'
 # In Docker, we don't often need the "Translations" files, so we're just wasting
 # time and space by downloading them, and this inhibits that.  For users that do
-# need them, it's a simple matter to delete this file and "apt-get update". :)
+# need them, it's a simple matter to delete this file and "apt-get update".
 Acquire::Languages "none";
 EOF
 
@@ -485,7 +486,7 @@ __remove_cache() {
   ## We get multiple errors like:
   ## gzip: stdout: Broken pipe
   ## dpkg-parsechangelog: error: gunzip gave error exit status 1
-  # TODO: Why?
+  ## TODO: Why?
   set +o pipefail
   BUILD_DATE="$(find "${ROOTFS_DIR}/usr/share/doc" -name changelog.Debian.gz -print0 | xargs -0 -n1 -I{} dpkg-parsechangelog -SDate -l'{}' | xargs -l -i date --date="{}" +%s | sort -n | tail -n 1 || echo '')"
   set -o pipefail
@@ -494,9 +495,11 @@ __remove_cache() {
   for DIR in "${DIRS_TO_TRIM[@]}"; do
     rm -r "${ROOTFS_DIR:?ROOTFS_DIR cannot be empty}/${DIR}"/*
   done
+
   ## Remove the aux-cache as it isn't reproducible. It doesn't seem to
   ## cause any problems to remove it.
   rm "${ROOTFS_DIR}/var/cache/ldconfig/aux-cache"
+
   ## Remove /usr/share/doc, but leave copyright files to be sure that we
   ## comply with all licenses.
   ## `mindepth 2` as we only want to remove files within the per-package
@@ -504,6 +507,7 @@ __remove_cache() {
   ## dir (e.g. libgcc1), and we don't want to remove those
   find "${ROOTFS_DIR}/usr/share/doc" -mindepth 2 -not -name copyright -not -type d -delete
   find "${ROOTFS_DIR}/usr/share/doc" -mindepth 1 -type d -empty -delete
+
   ## Set the mtime on all files to be no older than $BUILD_DATE.
   ## This is required to have the same metadata on files so that the
   ## same tarball is produced. We assume that it is not important
@@ -684,33 +688,33 @@ _test() {
 
   ## Run 4th test iter
   __desc "check that all base packages are correctly installed, including dependencies"
-  # Ask apt to install all packages that are already installed, has the effect of checking the
-  # dependencies are correctly available
+  ## Ask apt to install all packages that are already installed, has the effect of checking the
+  ## dependencies are correctly available
   # shellcheck disable=SC2016
   __test_args bash -c 'apt-get update && (dpkg-query -W -f \${Package} | while read pkg; do apt-get install $pkg; done)'
 
   ## Run 5th test iter
   __desc "check that install_packages doesn't loop forever on failures"
-  # This won't install and will fail. The key is that the retry loop will stop after a few iterations.
-  # We check that we didn't install the package afterwards, just in case a package gets added with that name.
-  # We wrap the whole thing in a timeout so that it doesn't loop forever. It's not ideal to have a timeout as there may be spurious failures if the network is slow.
+  ## This won't install and will fail. The key is that the retry loop will stop after a few iterations.
+  ## We check that we didn't install the package afterwards, just in case a package gets added with that name.
+  ## We wrap the whole thing in a timeout so that it doesn't loop forever. It's not ideal to have a timeout as there may be spurious failures if the network is slow.
   __test_args bash -c 'timeout 360 bash -c "(install_packages thispackagebetternotexist || true) && ! dpkg -l thispackagebetternotexist"'
 
   ## Run 6th test iter
-  # See https://github.com/bitnami/minideb/issues/17
-  __desc "checking that the terminfo is valid when running with -t (#17)"
+  ## See https://github.com/bitnami/minideb/issues/17
+  __desc "checking that the terminfo is valid when running with -t"
   echo "" | __test_extra_args '-t' bash -c 'install_packages procps && top -d1 -n1 -b'
 
   ## Run 7th test iter
-  # See https://github.com/bitnami/minideb/issues/16
-  __desc "check that we can install - ${MYSQL_PACKAGE} (#16)"
+  ## See https://github.com/bitnami/minideb/issues/16
+  __desc "check that we can install - ${MYSQL_PACKAGE}"
   __test_args install_packages "${MYSQL_PACKAGE}"
 
   ## Run 8th test iter
   __desc "check that all users have a fixed day as the last password change date in /etc/shadow"
   __shadow_check /etc/shadow
 
-  ## Run th test iter
+  ## Run 9th test iter
   __desc "check that all users have a fixed day as the last password change date in /etc/shadow-"
   __shadow_check /etc/shadow-
 }
@@ -737,7 +741,7 @@ ARGUMENTS LIST:
         -v                print version
         -d                set debug, to enable pass '-d'
         -t TAG            image tag, such as 1.8.1 and etc.
-        -c CODENAME       codename (specified in ${REPO_URL:="https://pr.ngrsoftlab.ru/repository/astra-cache"}/dists)
+        -c CODENAME       codename (specified in '/etc/os-release' VERSION_CODENAME variable. For this OS it is: $(awk -F'=' '$1=="VERSION_CODENAME" { print $2 ;}' /etc/os-release || echo 'unknown codename'))
         -r REPOSITORY     address of the repository
         -i IMAGE_NAME     name of the image being created
         -p PLATFORM       platform (based on dpkg --print-architecture command)
@@ -794,10 +798,10 @@ while getopts 't:c:r:p:i:dhv' OPTION; do
   esac
 done
 
-## Check variable and defenite variable
+## Check variable and definite variable
 : "${TAG:?Specify distr tag, such as '-t 1.8.0' or '-t 1.7.3' and in the same vein}"
 : "${CODENAME:=stable}"
-: "${REPO_URL:="https://pr.ngrsoftlab.ru/repository/astra-cache"}"
+: "${REPO_URL:?Specify repository URL, such as '-r https://download.astralinux.ru/astra/stable/1.7_x86-64/repository' or '-r https://download.astralinux.ru/astra/frozen/1.7_x86-64/1.7.5/repository' and in the same vein}"
 : "${PLATFORM:=$(dpkg --print-architecture)}"
 : "${IMAGE_NAME:=astra}"
 : "${DEBUG:=OFF}"
@@ -851,7 +855,7 @@ main() {
   CONF_TEMPLATE='{"architecture":"%PLATFORM%","comment":"from %COMPANY_NAME% with love","config":{"Hostname":"","Domainname":"","User":"","AttachStdin":false,"AttachStdout":false,"AttachStderr":false,"Tty":false,"OpenStdin":false,"StdinOnce":false,"Env":null,"Cmd":["/bin/bash"],"Image":"","Volumes":null,"WorkingDir":"","Entrypoint":null,"OnBuild":null,"Labels":null},"container_config":{"Hostname":"","Domainname":"","User":"","AttachStdin":false,"AttachStdout":false,"AttachStderr":false,"Tty":false,"OpenStdin":false,"StdinOnce":false,"Env":null,"Cmd":null,"Image":"","Volumes":null,"WorkingDir":"","Entrypoint":null,"OnBuild":null,"Labels":null},"created":"%TIMESTAMP%","docker_version":"1.13.0","history":[{"created":"%TIMESTAMP%","comment":"from %COMPANY_NAME% with love"}],"os":"linux","rootfs":{"type":"layers","diff_ids":["sha256:%LAYERSUM%"]}}'
   MANIFEST_TEMPLATE='[{"Config":"%CONF_SHA%.json","RepoTags":null,"Layers":["%LAYERSUM%/layer.tar"]}]'
   BUILD_DIR='build'
-  BUILD_REPO="${REPO_URL}-${TAG}-main"
+  BUILD_REPO="${REPO_URL}-main"
   TARGET="${BUILD_DIR}/${TAG}-${PLATFORM}.tar"
   DIRS_TO_TRIM=(
     "/usr/share/man"
@@ -870,7 +874,7 @@ main() {
     1.8.x | 1.8.1)
       DEBOOTSTRAP_ARCH_ARGS+=("--components=main,contrib,non-free,non-free-firmware")
       ;;
-    1.7.x | 1.7.5 | 1.7.4 | 1.7.3)
+    1.7.x | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
       DEBOOTSTRAP_ARCH_ARGS+=("--components=main,contrib,non-free")
       ;;
     *)
