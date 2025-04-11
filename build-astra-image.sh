@@ -4,7 +4,7 @@
 ## DESCRIPTION
 ##   This script can create images based on Astra Linux (Debian-like system).
 ##   To run you need to have docker.io and debootstrap. The following system
-##   versions are supported: 1.7.2, 1.7.3, 1.7.4, 1.7.5, 1.7.6, 1.7.x (latest updated version),
+##   versions are supported: 1.7.2, 1.7.3, 1.7.4, 1.7.5, 1.7.6, 1.7.7, 1.7.x (latest updated version),
 ##   1.8.1, 1.8.x (latest updated version)
 
 ## EXAMPLE USAGE
@@ -282,7 +282,7 @@ __set_source_list() {
     1.8.x | 1.8.1)
       echo "deb ${REPO_URL}-extended/ 1.8_x86-64 main contrib non-free non-free-firmware" >>"${ROOTFS_DIR}/etc/apt/sources.list"
       ;;
-    1.7.x | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
+    1.7.x | 1.7.7 | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
       echo "deb ${REPO_URL}-base/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
       echo "deb ${REPO_URL}-extended/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
       echo "deb ${REPO_URL}-update/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
@@ -874,7 +874,7 @@ main() {
     1.8.x | 1.8.1)
       DEBOOTSTRAP_ARCH_ARGS+=("--components=main,contrib,non-free,non-free-firmware")
       ;;
-    1.7.x | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
+    1.7.x | 1.7.7 | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
       DEBOOTSTRAP_ARCH_ARGS+=("--components=main,contrib,non-free")
       ;;
     *)

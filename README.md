@@ -6,9 +6,15 @@
 
 ![Image builder](https://img.shields.io/badge/image-builder-blue.svg)
 
+<!-- markdownlint-disable MD033 MD041 MD051 -->
+<table align="center"><tr><td align="center" width="9999">
+<img src="docs/images/logo.svg" align="center" alt="Forge image" width="400" height="400">
+</td></tr></table>
+<!-- markdownlint-enable MD033 MD041 MD051 -->
+
 ## Description
 
-Cкрипт по сборке образов Astra Linux. Взяты за основу [статья по сборке на докера на Astra](https://wiki.astralinux.ru/pages/viewpage.action?pageId=137563067), [minideb](https://github.com/bitnami/minideb) от Bitnami и скрипты от команды NGRSoftlab
+Скрипт по сборке образов Astra Linux. Взяты за основу [статья по сборке на докера на Astra](https://wiki.astralinux.ru/pages/viewpage.action?pageId=137563067), [minideb](https://github.com/bitnami/minideb) от Bitnami, проекта [Tianon Gravi](https://github.com/debuerreotype/debuerreotype) и скрипты от команды NGRSoftlab
 
 ## Contents
 
@@ -16,10 +22,11 @@ Cкрипт по сборке образов Astra Linux. Взяты за осн
   - [Description](#description)
   - [Contents](#contents)
   - [Requirements](#requirements)
-  - [What it is](#what-it-is)
+  - [What is it](#what-is-it)
   - [Why to use this product?](#why-to-use-this-product)
   - [Project variables](#project-variables)
   - [Supported version](#supported-version)
+    - [Compare versions](#compare-versions)
   - [How to work with](#how-to-work-with)
   - [Issues and solutions](#issues-and-solutions)
 
@@ -30,13 +37,13 @@ Cкрипт по сборке образов Astra Linux. Взяты за осн
 - docker.io
 - debootstrap
 
-## [What it is](#contents)
+## [What is it](#contents)
 
 Скрипт по сборке образов на основе Astra Linux. Что умеет:
 
 - [x] Собирать образы на основе  1.7.2 - 1.7.x (latest updated version), 1.8.1 - 1.8.x (latest updated version)
 - [x] Собирать образы на основе архитектуры
-- [x] Собирать образы на основе прокси и вшивать прокси внуть образа (аля Nexus)
+- [x] Собирать образы на основе прокси и вшивать прокси внутрь образа (аля Nexus)
 - [x] Собирать образы с произвольным тегом + именем
 - [x] Проводить синтетические тесты
 
@@ -47,8 +54,8 @@ Cкрипт по сборке образов Astra Linux. Взяты за осн
   - Пакеты, которые не часто используются в контейнерах (аппаратные, системы инициализации и т.д.).
   - Некоторые файлы, которые обычно не требуются (документы, страницы руководства, локали, кэши)
 - Эти образы также включают команду `install_packages`, которую можно использовать вместо `apt`. Скрипт позаботится о некоторых вещах:
-  - Установить названные пакеты, пропуская подсказки и т.д.
-  - После этого очистите метаданные `apt`, чтобы образ оставался маленьким.
+  - Установит названные пакеты, пропуская подсказки и т.д.
+  - После этого очистит метаданные `apt`, чтобы образ оставался маленьким.
   - Повторная попытка установка пакета в случае сбоя `apt`. Иногда пакет не удается загрузить из-за проблем с сетью, и это может исправить ситуацию, что особенно полезно в автоматизированном конвейере сборки.
 
 Пример:
@@ -60,28 +67,44 @@ $ install_packages apache2 memcached
 
 ## [Project variables](#contents)
 
-|     Имя     | Значение по умолчанию | Тип | Описание |
-|     :---    |         :----:        |  :----:  |   ---:   |
-| `DOCKER_SAVE_ACTION` | import | string | Тип загрузки образа(может быть `load/import`). |
-| `CODENAME` | stable | string | [Имя сборки](https://wiki.astralinux.ru/pages/viewpage.action?pageId=137563146)(для астры можно использовать `1.7_x86-64/1.8_x86-64`). В качестве проверки можно использовать эту команду `awk -F'=' '$1=="VERSION_CODENAME" { print $2 ;}' /etc/os-release`. |
-| `REPO_URL` | "" | string | Путь до прокси реджестри/репозитория с которым будет работать образ. |
-| `PLATFORM` | `$(dpkg --print-architecture)` | string | Архитектура системы. |
-| `IMAGE_NAME` | astra | string | Имя образа. |
-| `DEBUG` | OFF | string | Параметр включения/отключения отладки. |
-| `TAG` | "" | string | Тэг задаваемого образа. |
+| Имя                  |     Значение по умолчанию      |    Тип     |                                                                    Описание |
+|:---------------------|:------------------------------:|:----------:|----------------------------------------------------------------------------:|
+| `DOCKER_SAVE_ACTION` |             import             |   string   |                              Тип загрузки образа(может быть `load/import`). |
+| `CODENAME`           |             stable             |   string   | Кодовое имя дистрибутива[^2](для астры: `1.7_x86-64` или `1.8_x86-64`)[^1]. |
+| `REPO_URL`           |               ""               |   string   |        Путь до прокси реджестри/репозитория с которым будет работать образ. |
+| `PLATFORM`           | `$(dpkg --print-architecture)` | stringspec |                                                        Архитектура системы. |
+| `IMAGE_NAME`         |             astra              |   string   |                                                                 Имя образа. |
+| `DEBUG`              |              OFF               |   string   |                                      Параметр включения/отключения отладки. |
+| `TAG`                |               ""               |   string   |                                                     Тэг задаваемого образа. |
+
+<!-- markdownlint-disable MD033 -->
+<div align="center"> <sub> Переопределяемые аргументы для скрипта сборки. </sub> </div>
+<!-- markdownlint-enable MD033 -->
 
 ## [Supported version](#contents)
 
-| Кодовое имя | Версия |
-|   :----:   | :----: |
-| 1.7_x86-64 | 1.7.x |
-| 1.7_x86-64 | 1.7.6 |
-| 1.7_x86-64 | 1.7.5 |
-| 1.7_x86-64 | 1.7.4 |
-| 1.7_x86-64 | 1.7.3 |
-| 1.7_x86-64 | 1.7.2 |
-| 1.8_x86-64 | 1.8.x |
-| 1.8_x86-64 | 1.8.1 |
+| Кодовое имя |                              Версия                               |
+|:-----------:|:-----------------------------------------------------------------:|
+| 1.7_x86-64  | 1.7.x <br>1.7.7 <br>1.7.6 <br>1.7.5 <br>1.7.4 <br>1.7.3 <br>1.7.2 |
+| 1.8_x86-64  |                          1.8.x <br>1.8.1                          |
+
+<!-- markdownlint-disable MD033 -->
+<div align="center"> <sub> Поддерживаемые версии Astra Linux. </sub> </div>
+<!-- markdownlint-enable MD033 -->
+
+### [Compare versions](#contents)
+
+Так как `AstraLinux` это детище `Debian` необходимо знать о их соотношении версий, чтобы понимать на чём основана [база](https://wiki.astralinux.ru/pages/viewpage.action?pageId=53646577)
+
+| Версия Astra | Версия Debian |
+|:------------:|:-------------:|
+|     1.6      |  9 (Stretch)  |
+|     1.7      |  10 (Buster)  |
+|     1.8      | 12 (Bookworm) |
+
+<!-- markdownlint-disable MD033 -->
+<div align="center"> <sub> Таблица соотношений Astra Linux и Debian. </sub> </div>
+<!-- markdownlint-enable MD033 -->
 
 ## [How to work with](#contents)
 
@@ -97,7 +120,7 @@ $ install_packages apache2 memcached
                       -c 1.7_x86-64 \
                       -r https://download.astralinux.ru/astra/frozen/1.7_x86-64/1.7.5/repository
 
-## Cобрать образ с отладкой(дебагом) для 1.8.1
+## Собрать образ с отладкой(дебагом) для 1.8.1
 ./build-astra-image.sh -t 1.8.1 \
                       -c 1.8_x86-64 \
                       -r https://dl.astralinux.ru/astra/frozen/1.8_x86-64/1.8.1/repository \
@@ -116,7 +139,7 @@ export DOCKER_SAVE_ACTION=load
 - `md5sum` проверка файла
 
 ```shell
-echo "05fcaadff8f1379d4170db22de311844  build-deb-image.sh" | md5sum -c -
+echo "d2f74d4febf357e75dc06226109d7354  build-astra-image.sh" | md5sum -c -
 ```
 
 ## [Issues and solutions](#contents)
@@ -127,7 +150,7 @@ echo "05fcaadff8f1379d4170db22de311844  build-deb-image.sh" | md5sum -c -
 Error response from daemon: directory '/var/lib/docker/overlay2/84dd6d8ea4091978616b1c933aaeb9e45ff729207a0028030a595e3ce69a6238/diff' contains vulnerabilities! [{oval:ru.altx-soft.nix:def
 :188464 true Astra Linux -- уязвимость в expat, ia32-libs (2022-0819SE17) } {oval:ru.altx-soft.nix:def:188463 true Astra Linux -- уязвимость в expat, ia32-libs (2022-0819SE17) } {oval:ru.a
 ltx-soft.nix:def:188462 true Astra Linux -- уязвимость в expat, ia32-libs (2022-0819SE17) } {oval:ru.altx-soft.nix:def:188460 true Astra Linux -- уязвимость в expat, ia32-libs (2022-0819SE
-17) } {oval:ru.altx-soft.nix:def:188459 true Astra Linux -- уязвимость в expat, ia32-libs (2022-0819SE17) } {oval:ru.altx-soft.nix:def:188457 true Astra Linux -- уязвимость в cyrus-sasl2, 
+17) } {oval:ru.altx-soft.nix:def:188459 true Astra Linux -- уязвимость в expat, ia32-libs (2022-0819SE17) } {oval:ru.altx-soft.nix:def:188457 true Astra Linux -- уязвимость в cyrus-sasl2,
 ia32-libs (2022-0819SE17) } {oval:ru.altx-soft.nix:def:188451 true Astra Linux -- уязвимость в expat, ia32-libs (2022-0819SE17) } {oval:ru.altx-soft.nix:def:188447 true Astra Linux -- уязв
 имость в expat, ia32-libs (2022-0819SE17) } {oval:ru.altx-soft.nix:def:188444 true Astra Linux -- уязвимость в glibc (2022-0819SE17) } {oval:ru.altx-soft.nix:def:188442 true Astra Linux --
 уязвимость в expat, ia32-libs (2022-0819SE17) } {oval:ru.altx-soft.nix:def:188441 true Astra Linux -- уязвимость в expat, ia32-libs (2022-0819SE17) } {oval:ru.altx-soft.nix:def:188440 tru
@@ -181,3 +204,8 @@ Environment="DOCKER_OPTS=--astra-sec-level 6"
 ```
 
 - Независимо от использованного способа перезапустить службу docker: `systemctl restart docker`
+
+---
+
+[^1]: 🛠️ В качестве проверки можно использовать эту команду `awk -F'=' '$1=="VERSION_CODENAME" { print $2 ;}' /etc/os-release`
+[^2]: 🛠️ Подробнее об релизе [Astra Linux](https://wiki.astralinux.ru/pages/viewpage.action?pageId=137563146)
