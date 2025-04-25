@@ -1,0 +1,73 @@
+.badges-row-public {
+  display: flex;
+  flex-flow: row nowrap;
+  gap: 40px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 40em
+}
+
+.badges-row {
+  display: flex;
+  flex-flow: row nowrap;
+  gap: 10px;
+}
+
+.img-center {
+  display: block;
+  margin: 20px auto;
+}
+
+.table-double table {
+  width: 90%;
+  margin: 20px auto;
+  table-layout: fixed;
+}
+
+.table-double table th:first-of-type {
+  width: 10%;
+}
+
+.table-double table th:nth-of-type(2) {
+  width: 40%;
+}
+
+.table-triple table {
+  width: 100%;
+  margin: 20px auto;
+  table-layout: fixed;
+}
+
+.table-triple table th:first-of-type {
+  width: 20%;
+}
+
+.table-triple table th:nth-of-type(2) {
+  width: 30%;
+}
+
+.table-triple table th:nth-of-type(3) {
+  width: 50%;
+}
+
+.table-quadro table {
+  width: 100%;
+  margin: 20px auto;
+  table-layout: fixed;
+}
+
+.table-quadro table th:first-of-type {
+  width: 15%;
+}
+
+.table-quadro table th:nth-of-type(2) {
+  width: 20%;
+}
+
+.table-quadro table th:nth-of-type(3) {
+  width: 10%;
+}
+
+.table-quadro table th:nth-of-type(4) {
+  width: 55%;
+}

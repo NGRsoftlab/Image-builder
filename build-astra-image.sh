@@ -2,18 +2,19 @@
 ## GNU bash, версия 5.2.15(1)-release (x86_64-pc-linux-gnu)
 
 ## DESCRIPTION
-##   This script can create images based on Astra Linux (Debian-like system).
+##   This script can create images based on Astra Linux (Debian-like system)
 ##   To run you need to have docker.io and debootstrap. The following system
 ##   versions are supported: 1.7.2, 1.7.3, 1.7.4, 1.7.5, 1.7.6, 1.7.7, 1.7.x (latest updated version),
-##   1.8.1, 1.8.x (latest updated version)
+##   1.8.2, 1.8.1, 1.8.x (latest updated version)
 
 ## EXAMPLE USAGE
-##   Help ./build-astra-image.sh -h
+##   Help
+##      ./build-astra-image.sh -h
 ##   Build specific image
-##   ./build-astra-image.sh -t 1.7.2 \
-##                          -c 1.7_x86-64 \
-##                          -r https://dl.astralinux.ru/astra/frozen/1.7_x86-64/1.7.2/repository \
-##                          -i my-astra-image-name
+##     ./build-astra-image.sh -t 1.7.2 \
+##                            -c 1.7_x86-64 \
+##                            -r https://dl.astralinux.ru/astra/frozen/1.7_x86-64/1.7.2/repository \
+##                            -i my-astra-image-name
 
 ## ISSUES & SOLUTIONS
 ##    If image error like `contains vulnerabilities`` - disable built-in vulnerability scanning (not recommended)
@@ -39,22 +40,40 @@
 ##   Execute `systemctl restart docker`
 
 ## EXIT CODES
-##   exit code 33
+##   33:
 ##     Bash not found
-##   exit code 5
+##   5:
 ##     Help text was shown
-##   exit code 127
+##   127:
 ##     Utility not found; you must install it because this script depends on it
-##   exit code 128
+##   128:
 ##     Unsupported distribution version
-##   exit code 129
+##   129:
 ##     Unknown platform arch
 
 ## Check bash interpreter is installed
 if [ -z "${BASH_VERSION:-}" ]; then
-  echo "[timestamp: $(date +%F' '%T)] [level: ERROR] [file: $(basename "${0}")] bash is required to interpret this script"
+  echo "[timestamp: $(date +%F' '%T)] [level: ERROR] [file: $(basename "${0}")] 'bash' is required to interpret this script"
   exit 33
 fi
+
+set -Eeo pipefail
+
+## Check base variables before start
+[[ -n ${PROGRAM} ]] || PROGRAM=$(basename "${0}")
+[[ -n ${VERSION} ]] || VERSION="v$(<VERSION)"
+
+## Define include device for tar options
+[[ -n ${SCF_INCLUDE_DEV} ]] || SCF_INCLUDE_DEV=0
+
+set -u
+
+## Make variables unchanged
+COMPANY_NAME='NGRSoftlab'
+SCF_SYNTETIC_TEST_ENABLE=0
+BASEDIR="$(dirname "${0}")"
+SCRIPT_PATH="$(cd "${BASEDIR}" && pwd)"
+readonly PROGRAM VERSION COMPANY_NAME SCRIPT_PATH BASEDIR
 
 ##
 ## FUNCTIONS
@@ -83,7 +102,6 @@ tty_mkbold() { tty_escape "1;${1}"; }
 # OUTPUTS:
 #   Return to dynamic actual date format YYYY-MM-DD HH:MM:SS
 #############################################
-# shellcheck disable=SC2317  # Don't warn about unreachable commands in this file
 logger_time() { date +%F' '%T; }
 
 ## Definite color variables
@@ -93,11 +111,14 @@ logger_tty_green="$(tty_mkbold 32)"
 logger_tty_yellow="$(tty_mkbold 33)"
 logger_tty_blue="$(tty_mkbold 34)"
 
+## Define tab character
+logger_tty_tab() { printf "\t"; }
+
 #############################################
-## Log the given message at the given level.
+## Log the given message at the given level
 #############################################
-# Log template for all received.
-# All logs are written to stdout with a timestamp.
+# Log template for all received
+# All logs are written to stdout with a timestamp
 # ARGUMENTS:
 #   $1, the level with specific color style
 # OUTPUTS:
@@ -199,6 +220,68 @@ __decor() {
 }
 
 #############################################
+# Validate URL
+# RATIONALITY TO USE:
+# validate for ALMOST all URL (exclude IDN)
+#
+# if u want test IDN use this construction:
+# `echo "пример.рф" | idn2`
+#
+# if u used difficult login and password
+# with '@' '/' characters, then use this
+# construction:
+# `http://$(printf '%s' "$login:$password" | jq -sRr @uri)@example.com`
+#
+# this will ensure that the characters are
+# not treated as stop characters by the regular expression mask,
+# which could result in an return with a boolean false value
+#
+# ARGUMENTS:
+#   $@, list with url
+# RETURN:
+#   True(0) or False(1)
+#############################################
+__validate_url() {
+  local url RE DOMAIN DOMAIN_LENGTH
+
+  ## Schema
+  RE='^(https?|ftp)://'
+  ## Auth
+  RE+='([^\/@]+(:([^\/@]|%[0-9a-fA-F]{2})*)?@)?'
+  ## Domain
+  RE+='(([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}|'
+  ## IPv4
+  RE+='((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|'
+  ## IPv6
+  RE+='(\[(([a-fA-F0-9]{1,4}:){7}[a-fA-F0-9]{1,4}|(:[a-fA-F0-9]{1,4}){1,7}|[a-fA-F0-9]{1,4}(:[a-fA-F0-9]{1,4}){1,7}|([a-fA-F0-9]{1,4}:){1,6}:[a-fA-F0-9]{1,4}|([a-fA-F0-9]{1,4}:){1,5}(:[a-fA-F0-9]{1,4}){1,2}|([a-fA-F0-9]{1,4}:){1,4}(:[a-fA-F0-9]{1,4}){1,3}|([a-fA-F0-9]{1,4}:){1,3}(:[a-fA-F0-9]{1,4}){1,4}|([a-fA-F0-9]{1,4}:){1,2}(:[a-fA-F0-9]{1,4}){1,5}|[a-fA-F0-9]{1,4}:((:[a-fA-F0-9]{1,4}){1,6})|:((:[a-fA-F0-9]{1,4}){1,7}|:)|fe80:(:[a-fA-F0-9]{0,4}){0,4}%[0-9a-zA-Z]+|::(ffff(:0{1,4})?:)?((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9])|([a-fA-F0-9]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9]))\]))'
+  ## Port
+  RE+='(:[0-9]{1,5})?'
+  ## Path
+  RE+='(\/[^[:space:]?#]*)?'
+  ## Query
+  RE+='(\?[^[:space:]#<>]*)?'
+  ## Fragment
+  RE+='(\#[^[:space:]]*)?$'
+
+  for url in "$@"; do
+    ## Check main catch
+    [[ ${url} =~ ${RE} ]] || return 1
+
+    ## Check domain length
+    if [[ ${url} =~ ://([^/@:]+) ]]; then
+      DOMAIN=${BASH_REMATCH[1]%:*}
+      [[ -n ${DOMAIN} ]] || return 1
+      DOMAIN_LENGTH=${#DOMAIN}
+      if ((DOMAIN_LENGTH > 253)); then
+        return 1
+      fi
+    fi
+  done
+
+  return 0
+}
+
+#############################################
 # Check programs on exists
 # ARGUMENTS:
 #   $@, packages list (array)
@@ -206,13 +289,13 @@ __decor() {
 #   Write to stdout if error and exit with 127 code
 #############################################
 __package_exists() {
-  local PKG_LIST PKG_MISSING
+  local PKG_LIST PKG_MISSING required_pkg
   PKG_LIST=("$@")
   PKG_MISSING=false
 
   for required_pkg in "${PKG_LIST[@]}"; do
     if ! dpkg -l "${required_pkg}" >/dev/null 2>/dev/null; then
-      logger_warning_message "please install package - ${required_pkg}"
+      logger_error_message "please install package - '${required_pkg}'"
       PKG_MISSING=true
     fi
   done
@@ -229,15 +312,14 @@ __package_exists() {
 #############################################
 # shellcheck disable=SC2317
 __cleanup() {
-  ## When terminated by Ctrl-C
-  logger_warning_message "recived EXIT signal"
+  logger_warning_message "received EXIT signal"
 
   ## Change directory
   logger_info_message "back to ${HOME}"
   pushd "${HOME}" >/dev/null || true
 
   ## Debootstrap leaves mounted /proc and /sys folders in chroot
-  logger_info_message "unmount existings folders"
+  logger_info_message "unmount existing folders"
   umount "${ROOTFS_DIR}/proc" "${ROOTFS_DIR}/sys" >/dev/null 2>/dev/null || true
 
   ## Remove temp dir
@@ -251,11 +333,11 @@ __cleanup() {
 #   True(0) or False(1)
 #############################################
 __use_qemu_static() {
-  [[ "${PLATFORM}" == "arm64" && ! ("$(uname -m)" == *arm* || "$(uname -m)" == *aarch64*) ]]
+  [[ ${SCF_PLATFORM} == "arm64" && ! ("$(uname -m)" == *arm* || "$(uname -m)" == *aarch64*) ]]
 }
 
 #############################################
-# Rootfs exec
+# Root filesystem exec
 # ARGUMENTS:
 #   $@, command list (array)
 # OUTPUTS:
@@ -266,35 +348,65 @@ __rootfs_chroot() {
   local CHROOT_PATH
   CHROOT_PATH="$(type -P chroot)"
 
-  ## "chroot" doesn't set PATH, so we need to set it explicitly to something our new debootstrap chroot can use appropriately!
-  ## Set PATH and chroot away!
-  PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' "${CHROOT_PATH}" "${ROOTFS_DIR}" "$@"
+  ## "chroot" doesn't set PATH, so we need to set it explicitly to something our new debootstrap chroot can use appropriately
+  ## Set PATH, locale, timezone, memory allocation and chroot
+  PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=Etc/UTC MALLOC_ARENA_MAX=2 "${CHROOT_PATH}" "${ROOTFS_DIR}" "$@"
 }
 
 #############################################
-# Set source list depending on operating system
-# OUTPUTS:
-#   Write to stdout, if error - exit with 128 code
+# Calculate timestamp of fresh packages lists
+# RETURN:
+#   Most recent timestamp that a package in the image was changed
 #############################################
-__set_source_list() {
-  ## Set source list
-  case "${TAG}" in
-    1.8.x | 1.8.1)
-      echo "deb ${REPO_URL}-extended/ 1.8_x86-64 main contrib non-free non-free-firmware" >>"${ROOTFS_DIR}/etc/apt/sources.list"
-      ;;
-    1.7.x | 1.7.7 | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
-      echo "deb ${REPO_URL}-base/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
-      echo "deb ${REPO_URL}-extended/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
-      echo "deb ${REPO_URL}-update/ 1.7_x86-64 main contrib non-free" >>"${ROOTFS_DIR}/etc/apt/sources.list"
-      ;;
-    *)
-      logger_error_message "unsupported OS"
-      exit 128
-      ;;
-  esac
+__calculate_build_data() {
+  local RELEASE_FILES BUILD_DATE_CHANGELOG BUILD_DATE_LISTS
 
-  logger_info_message "check source list:"
-  logger_info_message "$(cat "${ROOTFS_DIR}/etc/apt/sources.list")"
+  ## https://til.simonwillison.net/bash/nullglob-in-bash
+  trap '$(shopt -p nullglob)' RETURN
+  shopt -s nullglob
+
+  BUILD_DATE=''
+  RELEASE_FILES=("${ROOTFS_DIR}"/var/lib/apt/lists/*_{In,}Release)
+  [[ ${#RELEASE_FILES[@]} -ne 0 ]] || {
+    logger_error_message "no 'Release' files found at /var/lib/apt/lists in '${ROOTFS_DIR}'"
+    logger_fail "did you forget to populate 'sources.list' or run 'apt-get update' first?"
+  }
+
+  ## Capture the most recent date that a package in the image was changed
+  ## We don't care about the particular date, or which package it comes from,
+  ## we just need a date that isn't very far in the past
+  BUILD_DATE_CHANGELOG="$(
+    __rootfs_chroot find "/usr/share/doc" -name changelog.Debian.gz -print0 \
+      | while IFS= read -r -d '' file; do
+        if [[ -s ${file} ]] && gunzip -c "${file}" 2>/dev/null | grep -q "^.* .* .* .*"; then
+          gunzip -c "${file}" 2>/dev/null | dpkg-parsechangelog -SDate -l- 2>/dev/null || true
+        fi
+      done \
+      | xargs -I{} date --date="{}" +%s 2>/dev/null \
+      | sort -n \
+      | tail -n 1 || echo ''
+  )"
+
+  ## Capture almost recent date from packages list
+  BUILD_DATE_LISTS="$(
+    awk -F ': ' '$1 == "Date" { printf "%s%c", $2, 0 }' "${RELEASE_FILES[@]}" \
+      | xargs -r0n1 date '+%s' --date \
+      | sort -un \
+      | tail -1 || echo ''
+  )"
+
+  ## Check what we return
+  if [[ -z ${BUILD_DATE_CHANGELOG} && -n ${BUILD_DATE_LISTS} ]]; then
+    BUILD_DATE="${BUILD_DATE_LISTS}"
+  elif [[ -n ${BUILD_DATE_CHANGELOG} && -z ${BUILD_DATE_LISTS} ]]; then
+    BUILD_DATE="${BUILD_DATE_CHANGELOG}"
+  elif [[ -n ${BUILD_DATE_CHANGELOG} && -n ${BUILD_DATE_LISTS} ]]; then
+    [[ ${BUILD_DATE_CHANGELOG} -gt ${BUILD_DATE_LISTS} ]] || BUILD_DATE="${BUILD_DATE_LISTS}"
+    [[ ${BUILD_DATE_CHANGELOG} -lt ${BUILD_DATE_LISTS} ]] || BUILD_DATE="${BUILD_DATE_CHANGELOG}"
+  fi
+
+  logger_info_message "total date is: '$(date -d @"${BUILD_DATE}")'"
+  export BUILD_DATE
 }
 
 #############################################
@@ -303,23 +415,25 @@ __set_source_list() {
 #   Write to stdout
 #############################################
 __docker_tweaks() {
-  local APT_GET_CLEAN
+  local APT_GET_CLEAN EXTRA_SPECIAL_DIRECTORIES OLDIFS FIND_MATCH_INCLUDES SLIM_EXCLUDES SLIM_INCLUDES
+  local slim_include slim_exclude DPKG_OUTPUT
 
   logger_info_message "applying docker-specific tweaks"
   ## These are copied from the docker contrib/mkimage/debootstrap script.
-  ## Modifications:
+  ## MODIFICATIONS:
   ##  - remove `strings` check for applying the --force-unsafe-io tweak.
   ##     This was sometimes wrongly detected as not applying, and we aren't
   ##     interested in building versions that this guard would apply to,
   ##     so simply apply the tweak unconditionally
 
   ## Prevent init scripts from running during install/update
-  echo >&2 "+ echo exit 101 > '${ROOTFS_DIR}/usr/sbin/policy-rc.d'"
+  logger_info_message "+ echo exit 101 > '${ROOTFS_DIR}/usr/sbin/policy-rc.d'"
   cat >"${ROOTFS_DIR}/usr/sbin/policy-rc.d" <<-'EOF'
 #!/bin/sh
 # For most Docker users, "apt-get install" only happens during "docker build",
 # where starting services doesn't work and often fails in humorous ways. This
-# prevents those failures by stopping the services from attempting to start.
+# prevents those failures by stopping the services from attempting to start
+
 exit 101
 EOF
   chmod +x "${ROOTFS_DIR}/usr/sbin/policy-rc.d"
@@ -344,19 +458,101 @@ EOF
   rm -f "${ROOTFS_DIR}/etc/apt/apt.conf.d/01autoremove-kernels"
 
   ## Force dpkg not to call sync() after package extraction (speeding up installs)
-  echo >&2 "+ echo force-unsafe-io > '${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/docker-apt-speedup'"
+  logger_info_message "+ echo force-unsafe-io > '${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/docker-apt-speedup'"
   cat >"${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/docker-apt-speedup" <<-'EOF'
 # For most Docker users, package installs happen during "docker build", which
 # doesn't survive power loss and gets restarted clean afterwards anyhow, so
 # this minor tweak gives us a nice speedup (much nicer on spinning disks,
-# obviously).
+# obviously)
+
 force-unsafe-io
 EOF
+
+  ## Attach base info about build version
+  logger_info_message "attach exclude and include list > '${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/docker'"
+  cat >"${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/docker" <<-'EOF'
+# This is the "slim" variant of the Debian base image
+# Many files which are normally unnecessary in containers are excluded,
+# and this configuration file keeps them that way
+
+EOF
+
+  # https://github.com/debuerreotype/debuerreotype/issues/10
+  mapfile -t EXTRA_SPECIAL_DIRECTORIES < <(find "${ROOTFS_DIR}"/usr/share/man -maxdepth 1 -type d -name 'man[0-9]')
+
+  OLDIFS="${IFS}"
+  IFS=$'\n'
+  set -o noglob
+  mapfile -t SLIM_EXCLUDES < <(grep -vE '^#|^$' "${SCRIPT_PATH}/lists/.slimify-excludes" | sort -u)
+  mapfile -t SLIM_INCLUDES < <(grep -vE '^#|^$' "${SCRIPT_PATH}/lists/.slimify-includes" | sort -u)
+  set +o noglob
+  unset IFS
+  IFS="${OLDIFS}"
+
+  ## Filling docker configure file
+  FIND_MATCH_INCLUDES=()
+  for SLIM_INCLUDE in "${SLIM_INCLUDES[@]}"; do
+    [[ ${#FIND_MATCH_INCLUDES[@]} -eq 0 ]] || FIND_MATCH_INCLUDES+=('-o')
+    FIND_MATCH_INCLUDES+=(-path "${SLIM_INCLUDE}")
+  done
+  FIND_MATCH_INCLUDES=('(' "${FIND_MATCH_INCLUDES[@]}" ')')
+
+  for slim_exclude in "${SLIM_EXCLUDES[@]}"; do
+    {
+      echo
+      echo "# dpkg -S '${slim_exclude}'"
+      if DPKG_OUTPUT="$(__rootfs_chroot dpkg -S "${slim_exclude}" 2>&1)"; then
+        echo "${DPKG_OUTPUT}" | sed 's/: .*//g; s/, /\n/g' | sort -u | xargs
+      else
+        echo "${DPKG_OUTPUT}"
+      fi | fold -w 76 -s | sed 's/^/#  /'
+      echo "path-exclude ${slim_exclude}"
+    } >>"${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/docker"
+
+    if [[ ${slim_exclude} == *'/*' ]]; then
+      if [[ -d "${ROOTFS_DIR}/$(dirname "${slim_exclude}")" ]]; then
+        ## Use two passes so that we don't fail trying to remove directories from ${SLIM_INCLUDES}
+        ## This is our best effort at implementing https://sources.debian.net/src/dpkg/stretch/src/filters.c/#L96-L97 in shell
+
+        ## Step 1 -- delete everything that doesn't match "${SLIM_INCLUDES}" and isn't a directory or a symlink
+        __rootfs_chroot \
+          find "$(dirname "${slim_exclude}")" \
+          -depth -mindepth 1 \
+          -not \( -type d -o -type l \) \
+          -not "${FIND_MATCH_INCLUDES[@]}" \
+          -exec rm -f '{}' ';'
+
+        ## Step 2 -- repeatedly delete any dangling symlinks and empty directories until there aren't any
+        ## (might have a dangling symlink in a directory which then makes it empty, or a symlink to an empty directory)
+        while [[ "$(
+          __rootfs_chroot \
+            find "$(dirname "${slim_exclude}")" \
+            -depth -mindepth 1 \( -empty -o -xtype l \) \
+            -exec rm -rf '{}' ';' -printf '.' \
+            | wc -c
+        )" -gt 0 ]]; do true; done
+      fi
+    else
+      __rootfs_chroot rm -f "${slim_exclude}"
+    fi
+  done
+  {
+    echo
+    for slim_include in "${SLIM_INCLUDES[@]}"; do
+      echo "path-include ${slim_include}"
+    done
+  } >>"${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/docker"
+  chmod 0644 "${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/docker"
+
+  ## https://github.com/debuerreotype/debuerreotype/issues/10
+  if [[ ${#EXTRA_SPECIAL_DIRECTORIES[@]} -gt 0 ]]; then
+    mkdir -p "${EXTRA_SPECIAL_DIRECTORIES[@]}"
+  fi
 
   if [[ -d "${ROOTFS_DIR}/etc/apt/apt.conf.d" ]]; then
     ## _keep_ us lean by effectively running "apt-get clean" after every install
     APT_GET_CLEAN='"rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true";'
-    echo >&2 "+ cat > '${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-clean'"
+    logger_info_message "+ cat > '${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-clean'"
     cat >"${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-clean" <<-EOF
 # Since for most Docker users, package installs happen in "docker build" steps,
 # they essentially become individual layers due to the way Docker handles
@@ -364,42 +560,46 @@ EOF
 # the caches that APT keeps end up just wasting space in those layers, making
 # our layers unnecessarily large (especially since we'll normally never use
 # these caches again and will instead just "docker build" again and make a brand
-# new image).
+# new image)
 # Ideally, these would just be invoking "apt-get clean", but in our testing,
 # that ended up being cyclic and we got stuck on APT's lock, so we get this fun
-# creation that's essentially just "apt-get clean".
+# creation that's essentially just "apt-get clean"
+
 DPkg::Post-Invoke { ${APT_GET_CLEAN} };
 APT::Update::Post-Invoke { ${APT_GET_CLEAN} };
 Dir::Cache::pkgcache "";
 Dir::Cache::srcpkgcache "";
+
 # Note that we do realize this isn't the ideal way to do this, and are always
-# open to better suggestions (https://github.com/docker/docker/issues).
+# open to better suggestions (https://github.com/docker/docker/issues)
 EOF
 
-    # remove apt-cache translations for fast "apt-get update"
-    echo >&2 "+ echo Acquire::Languages 'none' > '${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-no-languages'"
+    ## Remove apt-cache translations for fast "apt-get update"
+    logger_info_message "+ echo Acquire::Languages 'none' > '${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-no-languages'"
     cat >"${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-no-languages" <<-'EOF'
 # In Docker, we don't often need the "Translations" files, so we're just wasting
 # time and space by downloading them, and this inhibits that.  For users that do
-# need them, it's a simple matter to delete this file and "apt-get update".
+# need them, it's a simple matter to delete this file and "apt-get update"
+
 Acquire::Languages "none";
 EOF
 
-    echo >&2 "+ echo Acquire::GzipIndexes 'true' > '${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-gzip-indexes'"
+    logger_info_message "+ echo Acquire::GzipIndexes 'true' > '${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-gzip-indexes'"
     cat >"${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-gzip-indexes" <<-'EOF'
 # Since Docker users using "RUN apt-get update && apt-get install -y ..." in
 # their Dockerfiles don't go delete the lists files afterwards, we want them to
 # be as small as possible on-disk, so we explicitly request "gz" versions and
-# tell Apt to keep them gzipped on-disk.
+# tell Apt to keep them gzipped on-disk
 # For comparison, an "apt-get update" layer without this on a pristine
 # "debian:wheezy" base image was "29.88 MB", where with this it was only
-# "8.273 MB".
+# "8.273 MB"
+
 Acquire::GzipIndexes "true";
 Acquire::CompressionTypes::Order:: "gz";
 EOF
 
     ## Update "autoremove" configuration to be aggressive about removing suggests deps that weren't manually installed
-    echo >&2 "+ echo Apt::AutoRemove::SuggestsImportant 'false' > '${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-autoremove-suggests'"
+    logger_info_message "+ echo Apt::AutoRemove::SuggestsImportant 'false' > '${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-autoremove-suggests'"
     cat >"${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-autoremove-suggests" <<-'EOF'
 # Since Docker users are looking for the smallest possible final images, the
 # following emerges as a very common pattern:
@@ -411,21 +611,10 @@ EOF
 # Depends if another package Suggests them, even and including if the package
 # that originally caused them to be installed is removed.  Setting this to
 # "false" ensures that APT is appropriately aggressive about removing the
-# packages it added.
+# packages it added
 # https://aptitude.alioth.debian.org/doc/en/ch02s05s05.html#configApt-AutoRemove-SuggestsImportant
-Apt::AutoRemove::SuggestsImportant "false";
-EOF
 
-    ## Exclude mess doc files
-    echo >&2 "+ path-exclude /usr/share/doc/* > '${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/01_nodoc'"
-    cat >"${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/01_nodoc" <<-'EOF'
-path-exclude /usr/share/doc/*
-path-exclude /usr/share/man/*
-path-include /usr/share/doc/*/copyright
-path-exclude /usr/share/groff/*
-path-exclude /usr/share/info/*
-path-exclude /usr/share/lintian/*
-path-exclude /usr/share/linda/*
+Apt::AutoRemove::SuggestsImportant "false";
 EOF
   fi
 
@@ -471,64 +660,69 @@ EOF
 #   Write to stdout
 #############################################
 __remove_cache() {
-  local USR_BIN_MODIFICATION_TIME
+  local USR_BIN_MODIFICATION_TIME DIRS_TO_TRIM
 
-  ## Clean /etc/hostname and /etc/resolv.conf as they are based on the current env, so make
-  ## the chroot different. Docker doesn't care about them, as it fills them when starting
-  ## a container
+  ## Clean /etc/hostname and /etc/resolv.conf as they are based on the current env, so make the
+  ## chroot different. Docker doesn't care about them, as it fills them when starting a container
   echo "" >"${ROOTFS_DIR}/etc/resolv.conf"
   echo "host" >"${ROOTFS_DIR}/etc/hostname"
 
-  ## Capture the most recent date that a package in the image was changed.
-  ## We don't care about the particular date, or which package it comes from,
-  ## we just need a date that isn't very far in the past
+  DIRS_TO_TRIM=(
+    "/var/cache/apt"
+    "/var/lib/apt/lists"
+    "/var/log"
+  )
 
-  ## We get multiple errors like:
-  ## gzip: stdout: Broken pipe
-  ## dpkg-parsechangelog: error: gunzip gave error exit status 1
-  ## TODO: Why?
-  set +o pipefail
-  BUILD_DATE="$(find "${ROOTFS_DIR}/usr/share/doc" -name changelog.Debian.gz -print0 | xargs -0 -n1 -I{} dpkg-parsechangelog -SDate -l'{}' | xargs -l -i date --date="{}" +%s | sort -n | tail -n 1 || echo '')"
-  set -o pipefail
+  if [[ ${#DIRS_TO_TRIM[@]} -gt 0 ]]; then
+    for dir in "${DIRS_TO_TRIM[@]}"; do
+      logger_info_message "trimming down '${dir}'"
+      # shellcheck disable=SC2115
+      rm -r "${ROOTFS_DIR}/${dir}"/*
+    done
+  fi
 
-  logger_info_message "trimming down"
-  for DIR in "${DIRS_TO_TRIM[@]}"; do
-    rm -r "${ROOTFS_DIR:?ROOTFS_DIR cannot be empty}/${DIR}"/*
-  done
+  ## https://www.freedesktop.org/software/systemd/man/machine-id.html
+  ## For operating system images which are created once and used on multiple machines,
+  ## for example for containers or in the cloud, /etc/machine-id should be either missing
+  ## or an empty file in the generic file system image
+  if [[ -s ${ROOTFS_DIR}/etc/machine-id ]]; then
+    echo -n >"${ROOTFS_DIR}/etc/machine-id"
+    chmod 0644 "${ROOTFS_DIR}/etc/machine-id"
+  fi
 
-  ## Remove the aux-cache as it isn't reproducible. It doesn't seem to
-  ## cause any problems to remove it.
+  ## Remove the aux-cache as it isn't reproducible
+  ## It doesn't seem to cause any problems to remove it
   rm "${ROOTFS_DIR}/var/cache/ldconfig/aux-cache"
 
   ## Remove /usr/share/doc, but leave copyright files to be sure that we
-  ## comply with all licenses.
+  ## comply with all licenses
   ## `mindepth 2` as we only want to remove files within the per-package
   ## directories. Crucially some packages use a symlink to another package
   ## dir (e.g. libgcc1), and we don't want to remove those
   find "${ROOTFS_DIR}/usr/share/doc" -mindepth 2 -not -name copyright -not -type d -delete
   find "${ROOTFS_DIR}/usr/share/doc" -mindepth 1 -type d -empty -delete
 
-  ## Set the mtime on all files to be no older than $BUILD_DATE.
+  ## https://github.com/debuerreotype/debuerreotype/pull/32
+  rm -f "${ROOTFS_DIR}/run/mount/utab"
+  ## (also remove the directory, but only if it's empty)
+  rmdir "${ROOTFS_DIR}/run/mount" 2>/dev/null || :
+
+  ## Set the mtime on all files to be no older than ${BUILD_DATE}
   ## This is required to have the same metadata on files so that the
   ## same tarball is produced. We assume that it is not important
   ## that any file have a newer mtime than this
   [[ -z ${BUILD_DATE} ]] || find "${ROOTFS_DIR}" -depth -newermt "@${BUILD_DATE}" -print0 | xargs -0r touch --no-dereference --date="@${BUILD_DATE}"
 
-  rm -rf "${ROOTFS_DIR}/usr/share/groff/"*
-  rm -rf "${ROOTFS_DIR}/usr/share/info/"*
-  rm -rf "${ROOTFS_DIR}/usr/share/lintian/"*
-  rm -rf "${ROOTFS_DIR}/usr/share/linda/"*
-  rm -rf "${ROOTFS_DIR}/var/cache/man/"*
-  rm -rf "${ROOTFS_DIR}/usr/share/man/"*
-
   logger_info_message "total size: $(du -skh "${ROOTFS_DIR}")"
-  logger_info_message "package sizes"
-  ## These aren't shell variables, this is a template, so override sc thinking these are the wrong type of quotes
-  # shellcheck disable=SC2016
-  __rootfs_chroot dpkg-query -W -f '${Package} ${Installed-Size}\n'
+
+  ## These aren't shell variables, this is a template for DPKG packages
+  logger_info_message "package sizes:"
+  __rootfs_chroot dpkg-query -W -f "\${Package} \${Installed-Size}\n"
+
+  ## Calculate dir sizes
   logger_info_message "largest dirs:"
   logger_info_message "$(du "${ROOTFS_DIR}" | sort -n | tail -n 20)"
-  logger_info_message "built in ${ROOTFS_DIR}"
+  logger_info_message "build into: '${ROOTFS_DIR}' path"
 
   if __use_qemu_static; then
     logger_info_message "cleaning up qemu static files from image"
@@ -539,18 +733,62 @@ __remove_cache() {
 }
 
 #############################################
+# Set 'tar' options list
+# RETURN:
+#   export 'tar' args variable
+#############################################
+__set_tar_opts() {
+  local APT_VERSION ARCHIVE_NAME EXCLUDES exclude
+  ARCHIVE_NAME="${1}"
+  TAR_ARGS=()
+  APT_VERSION="$(__rootfs_chroot dpkg-query --show --showformat "\${Version}\n" "apt")"
+  EXCLUDES=()
+
+  ## if APT is new enough to auto-recreate "partial" directories, let it
+  ## (https://salsa.debian.org/apt-team/apt/commit/1cd1c398d18b78f4aa9d882a5de5385f4538e0be)
+  if dpkg --compare-versions "${APT_VERSION}" '>=' '0.8~'; then
+    EXCLUDES+=(
+      './var/cache/apt/**'
+      './var/lib/apt/lists/**'
+      './var/state/apt/lists/**'
+    )
+    ## (see also the targeted exclusions in ".tar-exclude" that these are overriding)
+  fi
+
+  ## Define base args
+  TAR_ARGS=(
+    --create
+    --file "${ARCHIVE_NAME}"
+    --auto-compress
+    --directory "${ROOTFS_DIR}"
+    --exclude-from "${SCRIPT_PATH}/lists/.tar-exclude"
+  )
+
+  ## If define include devices then not exclude then
+  [[ ${SCF_INCLUDE_DEV} -eq 1 ]] || EXCLUDES+=('./dev/**')
+
+  for exclude in "${EXCLUDES[@]}"; do
+    TAR_ARGS+=(--exclude "${exclude}")
+  done
+
+  ## Append side arguments
+  TAR_ARGS+=(
+    --numeric-owner
+    --transform 's,^./,,'
+    --sort name
+    .
+  )
+
+  export TAR_ARGS
+}
+
+#############################################
 # Import custom image with created manifest, return image id
 # RETURN:
 #   Image id
 #############################################
 __import() {
   local LAYERSUM TDIR CONF CONF_SHA MANIFEST ID
-
-  ## Create build directory
-  mkdir -p "${BUILD_DIR}"
-
-  ## Archive image
-  tar cf "${TARGET}" -C "${ROOTFS_DIR}" .
 
   LAYERSUM="$(sha256sum "${TARGET}" | awk '{print $1}')"
 
@@ -560,7 +798,7 @@ __import() {
   cp "${TARGET}" "${TDIR}/${LAYERSUM}/layer.tar"
   echo -n '1.0' >"${TDIR}/${LAYERSUM}/VERSION"
 
-  CONF="$(echo -n "${CONF_TEMPLATE}" | sed -e "s/%PLATFORM%/${PLATFORM}/g" -e "s/%TIMESTAMP%/${TIMESTAMP}/g" -e "s/%LAYERSUM%/${LAYERSUM}/g" -e "s/%COMPANY_NAME%/${COMPANY_NAME}/g")"
+  CONF="$(echo -n "${CONF_TEMPLATE}" | sed -e "s/%SCF_PLATFORM%/${SCF_PLATFORM}/g" -e "s/%TIMESTAMP%/${TIMESTAMP}/g" -e "s/%LAYERSUM%/${LAYERSUM}/g" -e "s/%COMPANY_NAME%/${COMPANY_NAME}/g")"
   CONF_SHA="$(echo -n "${CONF}" | sha256sum | awk '{print $1}')"
 
   echo -n "${CONF}" >"${TDIR}/${CONF_SHA}.json"
@@ -573,7 +811,7 @@ __import() {
 
   ID=$(docker load -i "${TDIR}/import.tar" | awk '{print $4}')
 
-  if [[ "${ID}" != "sha256:${CONF_SHA}" ]]; then
+  if [[ ${ID} != "sha256:${CONF_SHA}" ]]; then
     logger_fail "failed to load ${ID} correctly, expected id to be ${CONF_SHA}, source in ${TDIR}"
   fi
 
@@ -583,6 +821,10 @@ __import() {
   ## Publish image id
   echo "${ID}"
 }
+
+##
+## TEST FUNCTION
+##
 
 #############################################
 # Test description show
@@ -608,7 +850,7 @@ __test_extra_args() {
   local EXTRA_ARGS="${1}"
   shift
   # shellcheck disable=SC2086
-  docker run "${DOCKER_PLATFORM_ARGS[@]}" --rm "${BIND_MOUNTS[@]}" ${EXTRA_ARGS} -e DEBIAN_FRONTEND=noninteractive "${IMAGE}" "$@"
+  docker run "${DOCKER_PLATFORM_ARGS[@]}" --rm "${BIND_MOUNTS[@]}" ${EXTRA_ARGS} -e DEBIAN_FRONTEND=noninteractive "${SCF_IMAGE}" "$@"
   logger_info_message "TEST: OK"
   __decor "*" "200"
 }
@@ -633,7 +875,7 @@ __test_args() {
 #############################################
 __shadow_check() {
   local PATH_SH="${1}"
-  __test_args bash -c "(! cut -d: -f3 < ${PATH_SH} | grep -v 17885 >/dev/null) || (cat ${PATH_SH} && false)"
+  __test_args sh -c "(! cut -d: -f3 < ${PATH_SH} | grep -v 17885 >/dev/null) || (cat ${PATH_SH} && false)"
 }
 
 #############################################
@@ -641,13 +883,13 @@ __shadow_check() {
 # OUTPUTS:
 #   Write to stdout
 #############################################
-_test() {
+_test_apt() {
   local BIND_MOUNTS DOCKER_PLATFORM_ARGS MYSQL_PACKAGE
   MYSQL_PACKAGE='default-mysql-server'
   BIND_MOUNTS=()
   DOCKER_PLATFORM_ARGS=()
 
-  if [[ "${PLATFORM}" == "arm64" ]]; then
+  if [[ ${SCF_PLATFORM} == "arm64" ]]; then
     if [[ "$(uname -m)" == *arm* || "$(uname -m)" == *aarch64* ]]; then
       logger_info_message "running in arm host. QEMU is not needed"
     else
@@ -663,52 +905,58 @@ _test() {
   __test_args dpkg -l apt
 
   __desc "arch matches"
-  if [[ "${PLATFORM}" == "amd64" ]]; then
+  if [[ ${SCF_PLATFORM} == "amd64" ]]; then
     # shellcheck disable=SC2016
-    __test_args bash -c 'echo "$(uname -m)" && [[ "$(uname -m)" == *x86_64* ]]'
-  elif [[ "${PLATFORM}" == "arm64" ]]; then
+    __test_args sh -c 'echo "$(uname -m)" && echo "$(uname -m)" | grep -qE ".*x86_64.*"'
+  elif [[ ${SCF_PLATFORM} == "arm64" ]]; then
     # shellcheck disable=SC2016
-    __test_args bash -c 'echo "$(uname -m)" && [[ "$(uname -m)" == *arm* || "$(uname -m)" == *aarch64* ]]'
+    __test_args sh -c 'echo "$(uname -m)" && echo "$(uname -m)" | grep -qE ".*arm.*|.*aarch64.*"'
   else
-    logger_info_message "unknown platform ${PLATFORM}" >&2
+    logger_error_message "unknown platform ${SCF_PLATFORM}"
     exit 129
   fi
 
   ## Run 1st test iter
   __desc "checking that a package can be installed with apt"
-  __test_args bash -c 'apt-get update && apt-get -y install less && less --help >/dev/null'
+  __test_args sh -c 'apt-get update && apt-get -y install less && less --help >/dev/null'
 
   ## Run 2nd test iter
   __desc "checking that a package can be installed with install_packages and that it removes cache dirs"
-  __test_args bash -c 'install_packages less  && less --help >/dev/null && [ ! -e /var/cache/apt/archives ] && [ ! -e /var/lib/apt/lists ]'
+  __test_args sh -c 'install_packages less  && less --help >/dev/null && [ ! -e /var/cache/apt/archives ] && [ ! -e /var/lib/apt/lists ]'
 
   ## Run 3th test iter
   __desc "checking that the debootstrap dir wasn't left in the image"
-  __test_args bash -c '[ ! -e /debootstrap ]'
+  __test_args sh -c '[ ! -e /debootstrap ]'
 
   ## Run 4th test iter
   __desc "check that all base packages are correctly installed, including dependencies"
   ## Ask apt to install all packages that are already installed, has the effect of checking the
   ## dependencies are correctly available
   # shellcheck disable=SC2016
-  __test_args bash -c 'apt-get update && (dpkg-query -W -f \${Package} | while read pkg; do apt-get install $pkg; done)'
+  __test_args sh -c 'apt-get update && (dpkg-query -W -f \${Package} | while read pkg; do apt-get install $pkg; done)'
 
   ## Run 5th test iter
   __desc "check that install_packages doesn't loop forever on failures"
-  ## This won't install and will fail. The key is that the retry loop will stop after a few iterations.
-  ## We check that we didn't install the package afterwards, just in case a package gets added with that name.
-  ## We wrap the whole thing in a timeout so that it doesn't loop forever. It's not ideal to have a timeout as there may be spurious failures if the network is slow.
-  __test_args bash -c 'timeout 360 bash -c "(install_packages thispackagebetternotexist || true) && ! dpkg -l thispackagebetternotexist"'
+  ## This won't install and will fail. The key is that the retry loop will stop after a few iterations
+  ## We check that we didn't install the package afterwards, just in case a package gets added with that name
+  ## We wrap the whole thing in a timeout so that it doesn't loop forever. It's not ideal to have a timeout as
+  ## there may be spurious failures if the network is slow
+  __test_args sh -c 'timeout 360 sh -c "(install_packages thispackagebetternotexist || true) && ! dpkg -l thispackagebetternotexist"'
 
   ## Run 6th test iter
   ## See https://github.com/bitnami/minideb/issues/17
   __desc "checking that the terminfo is valid when running with -t"
-  echo "" | __test_extra_args '-t' bash -c 'install_packages procps && top -d1 -n1 -b'
+  echo "" | __test_extra_args '-t' sh -c 'install_packages procps && top -d1 -n1 -b'
 
   ## Run 7th test iter
   ## See https://github.com/bitnami/minideb/issues/16
   __desc "check that we can install - ${MYSQL_PACKAGE}"
-  __test_args install_packages "${MYSQL_PACKAGE}"
+  if [[ ${SCF_IMAGE} == *slim* ]]; then
+    logger_warning_message "trying with 'slim' exception"
+    __test_args install_packages mariadb-server default-mysql-server
+  else
+    __test_args sh -c "install_packages ${MYSQL_PACKAGE}"
+  fi
 
   ## Run 8th test iter
   __desc "check that all users have a fixed day as the last password change date in /etc/shadow"
@@ -717,7 +965,19 @@ _test() {
   ## Run 9th test iter
   __desc "check that all users have a fixed day as the last password change date in /etc/shadow-"
   __shadow_check /etc/shadow-
+
+  ## Run 10th test iter
+  __desc "check create system account"
+  __test_args sh -c 'groupadd -r systemuser --gid=999 && useradd -r -g systemuser --uid=999 --home-dir="/home/user" --shell=/bin/sh systemuser'
+
+  ## Run 11th test iter
+  __desc "check create user account"
+  __test_args sh -c 'groupadd user --gid=1000 && useradd -g user --uid=1000 --home-dir="/home/user" --shell=/bin/sh user'
 }
+
+##
+## HELP FUNCTION
+##
 
 #############################################
 # Help menu
@@ -728,92 +988,38 @@ _usage() {
   cat <<EOF
 
 NAME:
-        ${PROGRAM} - Create Docker image IMAGE_NAME based on REPOSITORY with CODENAME.
+$(__decor "$(logger_tty_tab)" "2") ${PROGRAM} - Create Docker image IMAGE_NAME based on REPOSITORY with CODENAME.
 
 SYNOPSIS:
-        ${PROGRAM} {-t TAG} [-d DISTRIBUTION] [-r REPOSITORY] [-p PLATFORM] [-v]
+$(__decor "$(logger_tty_tab)" "2") ${PROGRAM} {-t TAG NAME} {-r REPOSITORY} [-i IMAGE NAME] [-c CODENAME] [-p PLATFORM] [-v] [-h] [-d] [-s]
 
 DESCRIPTION:
-        Script can create astra docker image v1.7.x and v1.8.x.
+$(__decor "$(logger_tty_tab)" "2") Script can create astra docker image v1.7.x and v1.8.x.
 
 ARGUMENTS LIST:
-        -h                help menu
-        -v                print version
-        -d                set debug, to enable pass '-d'
-        -t TAG            image tag, such as 1.8.1 and etc.
-        -c CODENAME       codename (specified in '/etc/os-release' VERSION_CODENAME variable. For this OS it is: $(awk -F'=' '$1=="VERSION_CODENAME" { print $2 ;}' /etc/os-release || echo 'unknown codename'))
-        -r REPOSITORY     address of the repository
-        -i IMAGE_NAME     name of the image being created
-        -p PLATFORM       platform (based on dpkg --print-architecture command)
+$(__decor "$(logger_tty_tab)" "2") -h $(__decor "$(logger_tty_tab)" "3") help menu
+$(__decor "$(logger_tty_tab)" "2") -v $(__decor "$(logger_tty_tab)" "3") print version
+$(__decor "$(logger_tty_tab)" "2") -d $(__decor "$(logger_tty_tab)" "3") set debug, to enable pass '-d'
+$(__decor "$(logger_tty_tab)" "2") -s $(__decor "$(logger_tty_tab)" "3") call only synthetic test for image
+$(__decor "$(logger_tty_tab)" "2") -t TAG NAME $(__decor "$(logger_tty_tab)" "2") image tag, such as 1.8.1 and etc.
+$(__decor "$(logger_tty_tab)" "2") -c CODENAME $(__decor "$(logger_tty_tab)" "2") codename (specified in '/etc/os-release' VERSION_CODENAME variable. For this OS it is: $(awk -F'=' '$1=="VERSION_CODENAME" { print $2 ;}' /etc/os-release || echo 'unknown codename'))
+$(__decor "$(logger_tty_tab)" "2") -r REPOSITORY $(__decor "$(logger_tty_tab)" "2") address of the repository
+$(__decor "$(logger_tty_tab)" "2") -i IMAGE NAME $(__decor "$(logger_tty_tab)" "2") name of the image being created
+$(__decor "$(logger_tty_tab)" "2") -p PLATFORM $(__decor "$(logger_tty_tab)" "2") platform (based on dpkg --print-architecture command)
 
 AUTHOR:
-        Written by ${COMPANY_NAME}.
+$(__decor "$(logger_tty_tab)" "2") Written by ${COMPANY_NAME}.
 EOF
 }
 
 ##
-## MAIN SCRIPT
+## BUILD FUNCTION
 ##
 
-[[ -n ${PROGRAM} ]] || PROGRAM=$(basename "${0}")
-[[ -n ${VERSION} ]] || VERSION='v1.0.0'
-COMPANY_NAME='NGRSoftlab'
-readonly PROGRAM VERSION COMPANY_NAME
-
-set -eu -o pipefail
-
-## Set options
-while getopts 't:c:r:p:i:dhv' OPTION; do
-  case "${OPTION}" in
-    t)
-      TAG=${OPTARG}
-      ;;
-    c)
-      CODENAME=${OPTARG}
-      ;;
-    r)
-      REPO_URL=${OPTARG}
-      ;;
-    p)
-      PLATFORM=${OPTARG}
-      ;;
-    i)
-      IMAGE_NAME=${OPTARG}
-      ;;
-    d)
-      DEBUG='ON'
-      ;;
-    v)
-      printf "%s (%s) %s" "${PROGRAM}" "${COMPANY_NAME}" "${VERSION}"
-      exit 0
-      ;;
-    h)
-      _usage
-      exit 0
-      ;;
-    ?)
-      _usage
-      exit 5
-      ;;
-  esac
-done
-
-## Check variable and definite variable
-: "${TAG:?Specify distr tag, such as '-t 1.8.0' or '-t 1.7.3' and in the same vein}"
-: "${CODENAME:=stable}"
-: "${REPO_URL:?Specify repository URL, such as '-r https://download.astralinux.ru/astra/stable/1.7_x86-64/repository' or '-r https://download.astralinux.ru/astra/frozen/1.7_x86-64/1.7.5/repository' and in the same vein}"
-: "${PLATFORM:=$(dpkg --print-architecture)}"
-: "${IMAGE_NAME:=astra}"
-: "${DEBUG:=OFF}"
-: "${DOCKER_SAVE_ACTION:=import}"
-
-IMAGE="${IMAGE_NAME}:${TAG}"
-DEBIAN_FRONTEND=noninteractive
-export TAG CODENAME PLATFORM REPO_URL IMAGE DEBIAN_FRONTEND DEBUG DOCKER_SAVE_ACTION
-
-## Init entrypoint
-main() {
-  local TIMESTAMP USR_BIN_MODIFICATION_TIME CONF_TEMPLATE MANIFEST_TEMPLATE BUILD_DIR BUILD_REPO TARGET DIRS_TO_TRIM DEBOOTSTRAP_ARCH_ARGS BUILT_IMAGE_ID
+build() {
+  local USR_BIN_MODIFICATION_TIME BUILT_IMAGE_ID
+  local BUILD_DIR BUILD_REPO TARGET DEBOOTSTRAP_ARCH_ARGS
+  local DEBOOTSTRAP_ADDITIONAL_SOURSE_LIST
 
   ## Check user id (must be 0)
   [[ "$(id -u)" -eq 0 ]] || logger_fail "this script must be run by root"
@@ -824,8 +1030,225 @@ main() {
   ## Check running script on Astra OS
   [[ ${OS_ID,,} == 'astra' ]] || logger_fail "required AstraOS for script, but running on '${OS_ID}'"
 
+  ## Set vars
+  TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)"
+  CONF_TEMPLATE='{"architecture":"%SCF_PLATFORM%","comment":"from %COMPANY_NAME% with love","config":{"Hostname":"","Domainname":"","User":"","AttachStdin":false,"AttachStdout":false,"AttachStderr":false,"Tty":false,"OpenStdin":false,"StdinOnce":false,"Env":null,"Cmd":["/bin/bash"],"Image":"","Volumes":null,"WorkingDir":"","Entrypoint":null,"OnBuild":null,"Labels":null},"container_config":{"Hostname":"","Domainname":"","User":"","AttachStdin":false,"AttachStdout":false,"AttachStderr":false,"Tty":false,"OpenStdin":false,"StdinOnce":false,"Env":null,"Cmd":null,"Image":"","Volumes":null,"WorkingDir":"","Entrypoint":null,"OnBuild":null,"Labels":null},"created":"%TIMESTAMP%","docker_version":"1.13.0","history":[{"created":"%TIMESTAMP%","comment":"from %COMPANY_NAME% with love"}],"os":"linux","rootfs":{"type":"layers","diff_ids":["sha256:%LAYERSUM%"]}}'
+  MANIFEST_TEMPLATE='[{"Config":"%CONF_SHA%.json","RepoTags":null,"Layers":["%LAYERSUM%/layer.tar"]}]'
+  BUILD_DIR="${SCRIPT_PATH}/build"
+  BUILD_REPO="${SCF_REPO_URL}-main"
+  TARGET="${BUILD_DIR}/${SCF_TAG_NAME}-${SCF_PLATFORM}.tar"
+  DEBOOTSTRAP_ARCH_ARGS=(
+    "--variant=minbase"
+    "--no-check-gpg"
+  )
+
+  ## Create build directory
+  [[ -d ${BUILD_DIR} ]] || mkdir -p "${BUILD_DIR}"
+
+  case "${SCF_TAG_NAME}" in
+    1.8.x | 1.8.2 | 1.8.1)
+      DEBOOTSTRAP_ARCH_ARGS+=("--components=main,contrib,non-free,non-free-firmware")
+      mapfile -t DEBOOTSTRAP_ADDITIONAL_SOURSE_LIST <<EOF
+deb ${SCF_REPO_URL}-extended/ 1.8_x86-64 main contrib non-free non-free-firmware
+EOF
+      ;;
+    1.7.x | 1.7.7 | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
+      DEBOOTSTRAP_ARCH_ARGS+=("--components=main,contrib,non-free")
+      mapfile -t DEBOOTSTRAP_ADDITIONAL_SOURSE_LIST <<EOF
+deb ${SCF_REPO_URL}-base/ 1.7_x86-64 main contrib non-free
+deb ${SCF_REPO_URL}-extended/ 1.7_x86-64 main contrib non-free
+deb ${SCF_REPO_URL}-update/ 1.7_x86-64 main contrib non-free
+EOF
+      ;;
+    *)
+      logger_error_message "unsupported OS type"
+      exit 128
+      ;;
+  esac
+
+  ## Check packages on exists
+  __package_exists "docker.io" "debootstrap"
+
+  ## Trigger on any EXIT signal
+  trap __cleanup EXIT
+
+  ## Create temp rootfs dir
+  ROOTFS_DIR=$(mktemp -d)
+
+  ## Check chroot file system on empty definite
+  : "${ROOTFS_DIR:?ROOTFS_DIR cannot be empty}"
+
+  echo
+  logger_info_message "building base in '${ROOTFS_DIR}'"
+
+  ## Create minimal image
+  debootstrap "${DEBOOTSTRAP_ARCH_ARGS[@]}" "${SCF_CODENAME}" "${ROOTFS_DIR}" "${BUILD_REPO}"
+
+  ## Check qemu static
+  if __use_qemu_static; then
+    logger_info_message "setting up qemu static in chroot"
+    USR_BIN_MODIFICATION_TIME=$(stat -c %y "${ROOTFS_DIR}"/usr/bin)
+    if [[ -f "/usr/bin/qemu-aarch64-static" ]]; then
+      find /usr/bin/ -type f -name 'qemu-*-static' -exec cp {} "${ROOTFS_DIR}"/usr/bin/. \;
+    else
+      logger_fail "cannot find aarch64 qemu static. Aborting..."
+    fi
+    touch -d "${USR_BIN_MODIFICATION_TIME}" "${ROOTFS_DIR}"/usr/bin
+  fi
+
+  ## Set source list for distribution
+  printf "%s\n" "${DEBOOTSTRAP_ADDITIONAL_SOURSE_LIST[@]}" >>"${ROOTFS_DIR}/etc/apt/sources.list"
+  logger_info_message "check source list:"
+  while IFS=$'\n' read -r source_list; do
+    logger_info_message "${source_list}"
+  done <"${ROOTFS_DIR}/etc/apt/sources.list"
+  __decor "-" "200"
+
+  ## Update cache in chroot
+  __rootfs_chroot apt-get update
+
+  ## Calculate build data
+  __calculate_build_data
+
+  ## Upgrade and get manifest
+  __rootfs_chroot apt-get dist-upgrade -y -o Dpkg::Options::="--force-confdef"
+  __rootfs_chroot apt-get autoremove -y
+  __rootfs_chroot dpkg -l | tee "${SCF_TAG_NAME}.manifest"
+
+  ## Reduce image size by switch link on perl
+  __rootfs_chroot find "/usr/bin/" -wholename "/usr/bin/perl5*" -exec ln -fsv perl {} ';'
+
+  ## Reduce image size by delete mess on apt dir
+  __rootfs_chroot find /var/cache/apt/ ! -type d ! -name 'lock' -delete
+  __rootfs_chroot find /var/lib/apt/ ! -type d -wholename '/var/lib/apt/listchanges*' -delete
+  __rootfs_chroot find /var/lib/apt/lists/ ! -type d ! -name 'lock' -delete
+  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/apt/*' -delete
+  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/aptitude*' -delete
+  __rootfs_chroot find /var/tmp/ ! -type d -ls -delete
+
+  ## Reduce image size by delete mess on dpkg dir
+  __rootfs_chroot truncate -s 0 "/var/lib/dpkg/available"
+  __rootfs_chroot find "/var/lib/dpkg/" ! -type d -wholename "/var/lib/dpkg/*-old" -delete
+  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/alternatives.log' -delete
+  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/dpkg.log' -delete
+  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/bootstrap.log' -delete
+  __rootfs_chroot find "/var/lib/dpkg/" ! -type d -wholename "/var/lib/dpkg/info/*.symbols" -delete
+  __rootfs_chroot find /var/cache/debconf/ ! -type d -wholename '/var/cache/debconf/*-old' -delete
+
+  ## Call tweak to set min docker opt
+  __docker_tweaks
+
+  ## Call remove cache and doc options
+  __remove_cache
+
+  ## Branding
+  cp -f docs/issue "${ROOTFS_DIR}/etc/issue"
+  echo "Base image container version ${VERSION}" >>"${ROOTFS_DIR}/etc/issue"
+  grep -qF 'cat /etc/issue' "${ROOTFS_DIR}/etc/bash.bashrc" || echo 'cat /etc/issue' >>"${ROOTFS_DIR}/etc/bash.bashrc"
+
+  logger_info_message "total size chroot after actions: $(du -sh "${ROOTFS_DIR}")"
+
+  ## Remove image if exists
+  docker rmi "${SCF_IMAGE}" 2>/dev/null || true
+
+  ## Set tar options
+  __set_tar_opts "${TARGET}"
+
+  ## Archive image
+  tar "${TAR_ARGS[@]}"
+  touch --no-dereference --date="@${BUILD_DATE}" "${TARGET}"
+
+  ## Set save action
+  case "${SCF_DOCKER_SAVE_ACTION,,}" in
+    import)
+      ## Import image
+      docker import "${TARGET}" "${SCF_IMAGE}" \
+        --change "ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+        --change "ENV TERM xterm-256color" \
+        --change "ENV DEBIAN_FRONTEND noninteractive" \
+        --change 'CMD ["/bin/bash"]' \
+        --change "WORKDIR /" \
+        --message "from ${COMPANY_NAME} with love"
+      ;;
+    load)
+      ## Load image
+      BUILT_IMAGE_ID=$(__import)
+      docker tag "${BUILT_IMAGE_ID}" "${SCF_IMAGE}"
+      ;;
+  esac
+
+  logger_info_message "docker image has been generated: '${SCF_IMAGE}'"
+
+  ## Run synt test
+  _test_apt
+}
+
+##
+## MAIN FUNCTION
+##
+
+main() {
+  ## Set options
+  while getopts 't:c:r:p:i:dhvs' OPTION; do
+    case "${OPTION}" in
+      t)
+        SCF_TAG_NAME="${OPTARG}"
+        ;;
+      c)
+        SCF_CODENAME="${OPTARG}"
+        ;;
+      r)
+        SCF_REPO_URL="${OPTARG}"
+        ;;
+      p)
+        SCF_PLATFORM="${OPTARG}"
+        ;;
+      i)
+        SCF_IMAGE_NAME="${OPTARG}"
+        ;;
+      d)
+        SCF_DEBUG='ON'
+        ;;
+      v)
+        printf "%s (%s) %s\n" "${PROGRAM}" "${COMPANY_NAME}" "${VERSION}"
+        exit 0
+        ;;
+      h)
+        _usage
+        exit 0
+        ;;
+      s)
+        SCF_SYNTETIC_TEST_ENABLE=1
+        ;;
+      ?)
+        _usage
+        exit 5
+        ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+
+  ## Check and definite variable
+  : "${SCF_TAG_NAME:?Specify distribution tag, such as '-t 1.8.0' or '-t 1.7.3' and in the same vein}"
+  : "${SCF_IMAGE_NAME:=astra}"
+  : "${SCF_PLATFORM:=$(dpkg --print-architecture)}"
+  : "${SCF_DEBUG:=OFF}"
+
+  SCF_IMAGE="${SCF_IMAGE_NAME}:${SCF_TAG_NAME}"
+  DEBIAN_FRONTEND=noninteractive
+  export SCF_TAG_NAME SCF_PLATFORM SCF_IMAGE_NAME SCF_DEBUG SCF_IMAGE DEBIAN_FRONTEND
+
+  ## Info before launch
+  logger_info_message "Final launch variables:"
+  logger_info_message "Tag name: $(__decor "$(logger_tty_tab)" "4")${SCF_TAG_NAME}"
+  logger_info_message "Image name: $(__decor "$(logger_tty_tab)" "4")${SCF_IMAGE_NAME}"
+  logger_info_message "Image format: $(__decor "$(logger_tty_tab)" "4")${SCF_IMAGE}"
+  logger_info_message "Platform architecture: $(logger_tty_tab)${SCF_PLATFORM}"
+  logger_info_message "Enable debug: $(__decor "$(logger_tty_tab)" "4")${SCF_DEBUG}"
+  __decor "*" "200"
+
   ## Set debug
-  case "${DEBUG}" in
+  case "${SCF_DEBUG}" in
     [Oo][Nn])
       ## Detailed verbose
       #+ Levels of indirection and time
@@ -845,137 +1268,32 @@ main() {
       export PS4
       set -x
       ;;
-    [Oo][Ff][Ff])
-      logger_info_message "debug disable"
-      ;;
   esac
 
-  ## Set vars
-  TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)"
-  CONF_TEMPLATE='{"architecture":"%PLATFORM%","comment":"from %COMPANY_NAME% with love","config":{"Hostname":"","Domainname":"","User":"","AttachStdin":false,"AttachStdout":false,"AttachStderr":false,"Tty":false,"OpenStdin":false,"StdinOnce":false,"Env":null,"Cmd":["/bin/bash"],"Image":"","Volumes":null,"WorkingDir":"","Entrypoint":null,"OnBuild":null,"Labels":null},"container_config":{"Hostname":"","Domainname":"","User":"","AttachStdin":false,"AttachStdout":false,"AttachStderr":false,"Tty":false,"OpenStdin":false,"StdinOnce":false,"Env":null,"Cmd":null,"Image":"","Volumes":null,"WorkingDir":"","Entrypoint":null,"OnBuild":null,"Labels":null},"created":"%TIMESTAMP%","docker_version":"1.13.0","history":[{"created":"%TIMESTAMP%","comment":"from %COMPANY_NAME% with love"}],"os":"linux","rootfs":{"type":"layers","diff_ids":["sha256:%LAYERSUM%"]}}'
-  MANIFEST_TEMPLATE='[{"Config":"%CONF_SHA%.json","RepoTags":null,"Layers":["%LAYERSUM%/layer.tar"]}]'
-  BUILD_DIR='build'
-  BUILD_REPO="${REPO_URL}-main"
-  TARGET="${BUILD_DIR}/${TAG}-${PLATFORM}.tar"
-  DIRS_TO_TRIM=(
-    "/usr/share/man"
-    "/var/cache/apt"
-    "/var/lib/apt/lists"
-    "/usr/share/locale"
-    "/var/log"
-    "/usr/share/info"
-  )
-  DEBOOTSTRAP_ARCH_ARGS=(
-    "--variant=minbase"
-    "--no-check-gpg"
-  )
+  ## Call entrypoint
+  if [[ ${SCF_SYNTETIC_TEST_ENABLE} -eq 1 ]]; then
+    _test_apt
+  else
+    : "${SCF_CODENAME:=stable}"
+    : "${SCF_REPO_URL:?Specify repository URL, such as '-r https://download.astralinux.ru/astra/stable/1.7_x86-64/repository' or '-r https://download.astralinux.ru/astra/frozen/1.7_x86-64/1.7.5/repository' and in the same vein}"
+    : "${SCF_DOCKER_SAVE_ACTION:=import}"
+    export SCF_CODENAME SCF_REPO_URL SCF_DOCKER_SAVE_ACTION
+    logger_info_message "Codename: $(__decor "$(logger_tty_tab)" "4")${SCF_CODENAME}"
+    logger_info_message "Repository URL: $(__decor "$(logger_tty_tab)" "3")${SCF_REPO_URL}"
+    logger_info_message "Docker save method: $(__decor "$(logger_tty_tab)" "3")${SCF_DOCKER_SAVE_ACTION}"
+    __decor "*" "200"
 
-  case "${TAG}" in
-    1.8.x | 1.8.1)
-      DEBOOTSTRAP_ARCH_ARGS+=("--components=main,contrib,non-free,non-free-firmware")
-      ;;
-    1.7.x | 1.7.7 | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
-      DEBOOTSTRAP_ARCH_ARGS+=("--components=main,contrib,non-free")
-      ;;
-    *)
-      logger_error_message "unsupported OS type"
-      exit 128
-      ;;
-  esac
+    ## Check URL valid
+    __validate_url "${SCF_REPO_URL}" || logger_fail "'${SCF_REPO_URL}' is not valid URL"
 
-  ## Check packages on exists
-  __package_exists "docker.io" "debootstrap"
-
-  trap __cleanup EXIT
-
-  ## Create temp rootfs dir
-  ROOTFS_DIR=$(mktemp -d)
-  logger_info_message "building base in ${ROOTFS_DIR}"
-
-  ## Create minimal image
-  debootstrap "${DEBOOTSTRAP_ARCH_ARGS[@]}" "${CODENAME}" "${ROOTFS_DIR}" "${BUILD_REPO}"
-
-  ## Check qemu static
-  if __use_qemu_static; then
-    logger_info_message "setting up qemu static in chroot"
-    USR_BIN_MODIFICATION_TIME=$(stat -c %y "${ROOTFS_DIR}"/usr/bin)
-    if [[ -f "/usr/bin/qemu-aarch64-static" ]]; then
-      find /usr/bin/ -type f -name 'qemu-*-static' -exec cp {} "${ROOTFS_DIR}"/usr/bin/. \;
-    else
-      logger_fail "cannot find aarch64 qemu static. Aborting..."
-    fi
-    touch -d "${USR_BIN_MODIFICATION_TIME}" "${ROOTFS_DIR}"/usr/bin
+    ## Start build image
+    build
   fi
 
-  ## Set source list for distribution
-  __set_source_list
-
-  ## Change root on docker image and set settings
-  __rootfs_chroot apt-get update
-  __rootfs_chroot apt-get dist-upgrade -y -o Dpkg::Options::="--force-confdef"
-  __rootfs_chroot apt-get autoremove -y
-  __rootfs_chroot dpkg -l | tee "${TAG}.manifest"
-
-  ## Reduse image size by switch link on perl
-  __rootfs_chroot find "/usr/bin/" -wholename "/usr/bin/perl5*" -exec ln -fsv perl {} ';'
-
-  ## Reduse image size by delete mess on apt dir
-  __rootfs_chroot find /var/cache/apt/ ! -type d ! -name 'lock' -delete
-  __rootfs_chroot find /var/lib/apt/ ! -type d -wholename '/var/lib/apt/listchanges*' -delete
-  __rootfs_chroot find /var/lib/apt/lists/ ! -type d ! -name 'lock' -delete
-  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/apt/*' -delete
-  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/aptitude*' -delete
-  __rootfs_chroot find /var/tmp/ ! -type d -ls -delete
-
-  ## Reduse image size by delete mess on dpkg dir
-  __rootfs_chroot truncate -s 0 "/var/lib/dpkg/available"
-  __rootfs_chroot find "/var/lib/dpkg/" ! -type d -wholename "/var/lib/dpkg/*-old" -delete
-  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/alternatives.log' -delete
-  __rootfs_chroot find /var/log/ ! -type d -wholename '/var/log/dpkg.log' -delete
-  __rootfs_chroot find "/var/lib/dpkg/" ! -type d -wholename "/var/lib/dpkg/info/*.symbols" -delete
-  __rootfs_chroot find /var/cache/debconf/ ! -type d -wholename '/var/cache/debconf/*-old' -delete
-
-  ## Call tweak to set min docker opt
-  __docker_tweaks
-
-  ## Call remove cache and doc options
-  __remove_cache
-
-  logger_info_message "total size chroot after actions: $(du -sh "${ROOTFS_DIR}")"
-
-  ## Remove image if exists
-  docker rmi "${IMAGE}" 2>/dev/null || true
-
-  ## Set save action
-  case "${DOCKER_SAVE_ACTION,,}" in
-    import)
-      ## Import image
-      tar -C "${ROOTFS_DIR}" -c . |
-        docker import - "${IMAGE}" \
-          --change "ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-          --change "ENV TERM xterm-256color" \
-          --change "ENV DEBIAN_FRONTEND noninteractive" \
-          --change 'CMD ["/bin/bash"]' \
-          --change "WORKDIR /" \
-          --message "from ${COMPANY_NAME} with love"
-      ;;
-    load)
-      ## Load image
-      BUILT_IMAGE_ID=$(__import)
-      docker tag "${BUILT_IMAGE_ID}" "${IMAGE}"
-      ;;
-  esac
-
-  logger_info_message "docker image has been generated: ${IMAGE}"
-
-  ## Run synt test
-  _test
-
-  logger_info_message "$(date -ud "@${SECONDS}" "+time elapsed: %H:%M:%S")"
-
   ## Trigger trap function
-  exit 0
+  logger_info_message "$(date -ud "@${SECONDS}" "+time elapsed: %H:%M:%S")"
+  [[ ${SCF_SYNTETIC_TEST_ENABLE} -eq 1 ]] || exit 0
 }
 
 ## Call entrypoint
-main
+main "$@"

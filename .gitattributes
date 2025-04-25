@@ -32,6 +32,7 @@
 # Denote all files that are truly binary and should not be modified.
 *.png              binary
 *.jpg              binary
+*.gif              binary
 *.ttf              binary
 
 # Stop autolf

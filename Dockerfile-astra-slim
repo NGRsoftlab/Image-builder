@@ -1,0 +1,266 @@
+# syntax=docker/dockerfile:1.7-labs
+
+## Definite image args
+ARG image_registry
+ARG image_name=astra
+ARG image_version=1.8.1
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#                         Base image                          #
+#               First stage, prepare environment              #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+FROM ${image_registry}${image_name}:${image_version} AS base-stage
+
+SHELL [ "/bin/bash", "-exo", "pipefail", "-c" ]
+
+## Def initial arg(will be replaced with docker build opt)
+ARG version=1.0.0
+ARG install_additional_tools
+ARG remove_additional_binary
+ARG locale_list_enable
+
+## ENV for build args
+ENV \
+    VERSION="${version}" \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    TERM=linux \
+    TZ=Etc/UTC \
+## https://devcenter.heroku.com/articles/tuning-glibc-memory-behavior
+    MALLOC_ARENA_MAX=2
+
+## Copy issue
+COPY docs/issue-slim /etc/issue
+
+## Install requirements
+RUN --mount=type=bind,source=./scripts,target=/usr/local/sbin,readonly \
+    apt-install.sh \
+## Small init process
+        dumb-init \
+## Configure locales
+        locales \
+## Additional tools
+        ${install_additional_tools} \
+## Update locales
+    && locale-remove.sh "${locale_list_enable}"
+
+## Remove packages
+RUN --mount=type=bind,source=./scripts,target=/usr/local/sbin,readonly \
+    apt-env.sh apt-remove.sh \
+        bzip2 \
+        expect \
+        tcl-expect \
+        tcl8.6 \
+        liblocale-gettext-perl \
+        libtext-charwidth-perl \
+        libtext-iconv-perl \
+        libtext-wrapi18n-perl \
+        libtcl8.6
+## It is force system component in 1.8.2:
+        # bash
+
+## Redirecting critical binaries
+## These redirects ensure that even if a package tries to start
+## a service (for example, when installing cron), nothing happens
+RUN --mount=type=bind,source=./scripts,target=/usr/local/sbin,readonly \
+    divert_true() { rm-divert.sh "${1}" ; ln -sv /bin/true "${1}" ; } \
+## Blocks service management
+    && divert_true /sbin/start-stop-daemon \
+## Always report that we're in chroot
+    && divert_true /usr/bin/ischroot \
+## Hide systemd helpers
+    && divert_true /usr/bin/deb-systemd-helper \
+    && divert_true /usr/bin/deb-systemd-invoke
+
+## Remove unwanted binaries
+RUN --mount=type=bind,source=./scripts,target=/usr/local/sbin,readonly \
+    rm-binary.sh \
+        addpart \
+        apt-ftparchive \
+        ## Containers do not have real TTYs (except those allocated via docker exec -it)
+        agetty \
+        badblocks \
+        blkdiscard \
+        blkid \
+        blkzone \
+        blockdev \
+        bsd-write \
+        chage \
+        chcpu \
+        chfn \
+        chgpasswd \
+        chmem \
+        chpasswd \
+        chsh \
+        cpgr \
+        cppw \
+        ## Storing state of cron jobs is against the principles of 12-factor apps
+        crontab \
+        ## Signal is intercepted by docker daemon
+        ## Redirection attempts may break host
+        ctrlaltdel \
+        debugfs \
+        delpart \
+        dmesg \
+        dumpe2fs \
+        e2freefrag \
+        e2fsck \
+        e2image \
+        e2label \
+        e2mmpstatus \
+        ## Container FS are considered "disposable"
+        ## Check should be done at host level for real disks
+        e2scrub \
+        'e2scrub*' \
+        e2undo \
+        ## Requires privileges (--cap-add SYS_ADMIN), dangerous in container
+        ## Encryption must be done at the host level (LUKS) or volume driver
+        e4crypt \
+        e4defrag \
+        expiry \
+        faillock \
+        fdformat \
+        fincore \
+        findfs \
+        fsck \
+        'fsck.*' \
+        ## Container FS are usually temporary (ephemeral)
+        ## May cause deadlock when using docker commit
+        fsfreeze \
+        fstrim \
+        getty \
+        gpasswd \
+        groupmems \
+        ## User files are usually generated on container startup
+        grpck \
+        grpconv \
+        grpunconv \
+        ## Containers use host time (--cap-add SYS_TIME required to change)
+        ## Attempts to synchronize time may disrupt host operation
+        hwclock \
+        isosize \
+        last \
+        lastb \
+        ldattach \
+        losetup \
+        lsblk \
+        lsirq \
+        lslogins \
+        mcookie \
+        mesg \
+        mke2fs \
+        mkfs \
+        'mkfs.*' \
+        mkhomedir_helper \
+        mklost+found \
+        mkswap \
+        mount \
+        newgrp \
+        newusers \
+        ## Use a single pre-installed PAM configuration
+        ## Changing PAM rules at runtime is contrary to the principles of immutable infrastructure
+        pam-auth-update \
+        pam_getenv \
+        ## Containers already provide isolation via namespaces/cgroups
+        ## May conflict with docker sandboxing
+        pam_namespace_helper \
+        ## Containers should not cache authentication between runs
+        ## May cause credentials leak during container migration
+        pam_timestamp_check \
+        partx \
+        pivot_root \
+        ## False positives when using read-only root FS
+        pwck \
+        pwconv \
+        pwhistory_helper \
+        pwunconv \
+        raw \
+        readprofile \
+        resize2fs \
+        resizepart \
+        rtcwake \
+        sg \
+        shadowconfig \
+        ## Containers do not support single-user mode
+        ## Can be used to bypass security (requires CAP_SYS_BOOT)
+        sulogin \
+        swaplabel \
+        swapoff \
+        swapon \
+        switch_root \
+        tune2fs \
+        umount \
+        ## Direct manipulation of /etc/shadow is not recommended in containers
+        unix_chkpwd \
+        unix_update \
+        utmpdump \
+        vigr \
+        vipw \
+        ## Containers do not have a multi-user environment
+        ## Can be used for DoS attacks via /dev/pts/*
+        wall \
+        wdctl \
+        wipefs \
+        write \
+        'write.*' \
+        ## Requires access to /dev/zram-control, which breaks isolation
+        ## Compressed RAM configuration must be done on the host
+        zramctl \
+## Remove additional binary
+        ${remove_additional_binary} \
+    && rm -f \
+        /bin/lastb \
+        /bin/sg \
+        /sbin/getty
+
+## Prune tmp directory
+RUN --mount=type=bind,source=./scripts,target=/usr/local/sbin,readonly \
+    find /tmp/ ! -type d -ls -delete \
+## Ensures that the container starts without conflicts (e.g. from old processes)
+    && { \
+        find /run/ -mindepth 1 -ls -delete || :; \
+    } \
+## Protect lock files from accidental deletion by other users
+## (for example, if the container is launched as root, and the processes are launched as www-data)
+    && install -d -m 01777 /run/lock \
+## Deduplication cleanup
+    && dedup-clean.sh /usr/ \
+## Remove cache
+    && apt-clean.sh \
+    && rm /root/.bashrc \
+    && rm /root/.profile \
+## Def version container
+    && echo "Minimal Container version ${VERSION}" >>/etc/issue \
+## Check can be preview /etc/issue
+    && { \
+        grep -qF 'cat /etc/issue' /etc/bash.bashrc \
+        || echo 'cat /etc/issue' >>/etc/bash.bashrc; \
+    }
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#                        Final image                          #
+#             Second stage, compact optimize layer            #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+FROM scratch
+
+COPY --from=base-stage / /
+
+## Set base label
+LABEL \
+    maintainer="Vladislav Avdeev" \
+    organization="NGRSoftlab"
+
+## Set locale language
+ENV \
+    LANG='en_US.UTF8' \
+    LC_ALL='en_US.UTF8' \
+    PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+    TERM='xterm-256color' \
+    TZ=Etc/UTC \
+    DEBIAN_FRONTEND='noninteractive'
+
+## Set work directory
+WORKDIR /
+
+ENTRYPOINT [ "dumb-init", "--" ]
+CMD [ "/bin/bash" ]

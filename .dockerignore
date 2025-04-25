@@ -1,0 +1,6 @@
+/dev/*
+lists/*
+docs/images/*
+docs/*.md
+configuration/*
+.gitlab/*

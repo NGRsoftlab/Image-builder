@@ -17,4 +17,3 @@ keep_padding       = true  # like -kp
 never_split        = true  # like -ns
 # space_redirects    = true  # like -sr
 # function_next_line = true  # like -fn
-

@@ -1,0 +1,16 @@
+[aA]stra
+minideb
+Bitnami
+Tianon
+Gravi
+NGR.*
+debootstrap
+stringspec
+[dD][oO][cC][kK][eE][rR].*
+gif
+Herrington
+Skyrim
+[cC]ya
+coreutils
+Makefile
+Midnightcomm
