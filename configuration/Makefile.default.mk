@@ -94,7 +94,7 @@ target-list: ## Show Makefile available target
 		| grep -v '__\$$' | grep -vE '*[1]' | grep -vE 'Makefile*' \
 		| sort"
 
-## Check if 'CONTAINER_SKIP_SLIM' is 'TRUE' then run targets without test
+## Check if 'CONTAINER_SKIP_SLIM' is 'TRUE' then run targets without create slim
 ifeq ($(CONTAINER_SKIP_SLIM), TRUE)
 all: variables-list build push clean
 else

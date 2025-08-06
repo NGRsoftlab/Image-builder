@@ -31,7 +31,23 @@
 
 Аффикс, для переменных, был выбран как `SCF_` - акроним от `Script that Creates a Form` - скрипт создающий форму. Игра слов, связанная с тем, что данный скрипт создаёт из минимального наборка компонентов базовый образ для контейнерных сред
 
-::include{file=docs/integration.md}
+Присоединяйтесь к нашим социальным сетям:
+
+<!-- markdownlint-disable MD033 -->
+
+<div class="badges-row-public">
+  <h4 align="center">
+    <a href="https://t.me/NGR_Softlab">
+      <img src="https://shields.io/badge/ngr-telegram-blue?logo=telegram&style=for-the-badge" alt="NGR Social Telegram" height="40" />
+    </a>
+    &emsp; &emsp; &emsp;
+    <a href="https://www.ngrsoftlab.ru/?utm_source=tg&utm_medium=start" >
+      <img src="https://shields.io/badge/ngr-web--page-yellow?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjIyLjcgMCA1MS45IDUxLjciPjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNzQuNSAwSDYzLjhsMy42IDMuNWMuNy43LjcgMS45IDAgMi43LS43LjctMS45LjctMi42IDBMNTguOSAwSDUzbDE0LjUgMTMuOWMuNy43LjcgMS45IDAgMi43LS43LjctMS45LjctMi42IDBMNDkgMGgtNi44bDI1LjMgMjQuM2MuNy43LjcgMS45IDAgMi43LS43LjctMS45LjctMi42IDBMMzkgMGgtNy43bDM2LjEgMzQuN2MuNy43LjcgMS45IDAgMi42cy0xLjkuNy0yLjYgMEwyOSAwYy0zLjUuNC02LjMgMy40LTYuMyA3djQ0LjdoMTAuNmwtMy42LTMuNGMtLjctLjctLjctMS45IDAtMi42czEuOS0uNyAyLjcgMGw1LjggNmg1LjlMMjkuNyAzNy45Yy0uNy0uNy0uNy0xLjkgMC0yLjcuNy0uNyAxLjktLjcgMi43IDBsMTUuOCAxNi40SDU1TDI5LjggMjcuNGMtLjctLjctLjctMS45IDAtMi43LjctLjcgMS45LS43IDIuNyAwbDI1LjggMjYuOEg2NkwyOS45IDE2LjljLS43LS43LS43LTEuOSAwLTIuNnMxLjktLjcgMi43IDBsMzUuNyAzNy4yYzMuNS0uMyA2LjMtMy4zIDYuMy03VjB6IiBmaWxsPSIjRjhBRDAwIi8+PC9zdmc+" alt="NGR Social Media" height="40" />
+    </a>
+  </h4>
+</div>
+
+<!-- markdownlint-enable MD033 -->
 
 ## Contents
 
@@ -51,6 +67,7 @@
   - [How use in CI/CD](#how-use-in-cicd)
   - [Issues and solutions](#issues-and-solutions)
   - [Contributing](#contributing)
+    - [Cya!](#cya)
 
 ## [Requirements](#contents)
 
@@ -141,16 +158,14 @@ pre-commit installed at .git/hooks/commit-msg
 pre-commit installed at .git/hooks/pre-push
 ```
 
->>> [!warning] Предупреждение
-
-- Чтобы проверить свои изменения, воспользуйтесь командой `pre-commit run --all-files`
-- Чтобы проверить конкретную задачу, воспользуетесь командой `pre-commit run <target> --all-files`
-- Если Вы понимаете что творите и хотите пропустить проверку `pre-commit`-ом воспользуйтесь `--no-verify`, пример `git commit -m "Добавил изменения и не хочу проверки" --no-verify`
->>>
+> [!warning]
+> Чтобы проверить свои изменения, воспользуйтесь командой `pre-commit run --all-files`.
+> Чтобы проверить конкретную задачу, воспользуетесь командой `pre-commit run <target> --all-files`.
+> Если Вы понимаете что творите и хотите пропустить проверку `pre-commit`-ом воспользуйтесь `--no-verify`, пример `git commit -m "Добавил изменения и не хочу проверки" --no-verify`
 
 При работе с хуками, есть некоторые моменты:
 
-> [!note] Имейте в виду
+> [!note]
 > Подготовка среды для работы с `vale` берёт из `StylesPath` в `.vale.ini` конфигурационном файле.
 > Если необходимо пересоздать настройку окружения для `vale`, то нужно предварительно очистить полностью данную директорию
 
@@ -581,14 +596,24 @@ systemctl edit docker
 Environment="DOCKER_OPTS=--astra-sec-level 6"
 ```
 
-> [!warning] Предупреждение
+> [!warning]
 > Независимо от использованного способа перезапустить службу Docker: `systemctl restart docker`
 
 ## [Contributing](#contents)
 
 По всем вопросам о сотрудничестве - [сюда](CONTRIBUTING.md)
 
-::include{file=docs/cya.md}
+<!-- markdownlint-disable MD033 MD041 MD051 -->
+
+<table align="center"><tr><td align="center" width="9999">
+<img src="docs/images/cya.gif" align="center"  alt="Billy Herrington gif">
+
+<div align="center"> <sub> Billy Herrington in the forge of Skyrim. </sub> </div>
+
+### [Cya!](#contents)
+
+</td></tr></table>
+<!-- markdownlint-enable MD033 MD041 MD051 -->
 
 ---
 
