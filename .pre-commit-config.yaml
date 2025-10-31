@@ -55,7 +55,7 @@ repos:
         language: system
 
   - repo: https://github.com/errata-ai/vale
-    rev: v3.12.0
+    rev: v3.13.0
     hooks:
       - id: vale
         name: "📝 markdown · Lint markdown via vale"
@@ -67,7 +67,7 @@ repos:
 
   ### Shell/Bash ###
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
         name: "🐚 shell · Lint shell scripts"
@@ -159,7 +159,7 @@ repos:
 
 # ---------------------------- 📁 Filesystem Tools --------------------------- #
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       # Filesystem Checks
       - id: trailing-whitespace

@@ -4,8 +4,8 @@
 ## DESCRIPTION
 ##   This script can create images based on Astra Linux (Debian-like system)
 ##   To run you need to have docker.io and debootstrap. The following system
-##   versions are supported: 1.7.2, 1.7.3, 1.7.4, 1.7.5, 1.7.6, 1.7.7, 1.7.x (latest updated version),
-##   1.8.2, 1.8.1, 1.8.x (latest updated version)
+##   versions are supported: 1.7.2, 1.7.3, 1.7.4, 1.7.5, 1.7.6, 1.7.7, 1.7.8, 1.7.x (latest updated version),
+##   1.8.1, 1.8.2, 1.8.3, 1.8.x (latest updated version)
 
 ## EXAMPLE USAGE
 ##   Help
@@ -1046,13 +1046,13 @@ build() {
   [[ -d ${BUILD_DIR} ]] || mkdir -p "${BUILD_DIR}"
 
   case "${SCF_TAG_NAME}" in
-    1.8.x | 1.8.2 | 1.8.1)
+    1.8.x | 1.8.3 | 1.8.2 | 1.8.1)
       DEBOOTSTRAP_ARCH_ARGS+=("--components=main,contrib,non-free,non-free-firmware")
       mapfile -t DEBOOTSTRAP_ADDITIONAL_SOURSE_LIST <<EOF
 deb ${SCF_REPO_URL}-extended/ 1.8_x86-64 main contrib non-free non-free-firmware
 EOF
       ;;
-    1.7.x | 1.7.7 | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
+    1.7.x | 1.7.8 | 1.7.7 | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
       DEBOOTSTRAP_ARCH_ARGS+=("--components=main,contrib,non-free")
       mapfile -t DEBOOTSTRAP_ADDITIONAL_SOURSE_LIST <<EOF
 deb ${SCF_REPO_URL}-base/ 1.7_x86-64 main contrib non-free

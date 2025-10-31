@@ -113,8 +113,8 @@ $ install_packages apache2 memcached
 
 |                                                   Кодовое имя                                                    |    Версия     | Status            |
 | :--------------------------------------------------------------------------------------------------------------: | :-----------: | :---------------- |
-| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.7_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.7.x - 1.7.7 | ✅ Fully supported |
-| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.8_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.8.x - 1.8.2 | ✅ Fully supported |
+| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.7_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.7.x - 1.7.8 | ✅ Fully supported |
+| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.8_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.8.x - 1.8.3 | ✅ Fully supported |
 
 </div>
 
