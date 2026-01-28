@@ -208,7 +208,7 @@ logger_template() {
 #############################################
 logger_info_message() {
   local message="$*"
-  logger_template "info" "${message}"
+  logger_template "INFO" "${message}"
 }
 
 #############################################
@@ -222,7 +222,7 @@ logger_info_message() {
 #############################################
 logger_warning_message() {
   local message="$*"
-  logger_template "warning" "${message}"
+  logger_template "WARNING" "${message}"
 }
 
 #############################################
@@ -236,7 +236,7 @@ logger_warning_message() {
 #############################################
 logger_error_message() {
   local message="$*"
-  logger_template "error" "${message}" >&2
+  logger_template "ERROR" "${message}" >&2
 }
 
 #############################################
@@ -552,7 +552,7 @@ __docker_tweaks() {
   ##     so simply apply the tweak unconditionally
 
   ## Prevent init scripts from running during install/update
-  logger_info_message "+ echo exit 101 > '${ROOTFS_DIR}/usr/sbin/policy-rc.d'"
+  logger_info_message "+ echo exit 101 >'${ROOTFS_DIR}/usr/sbin/policy-rc.d'"
   cat >"${ROOTFS_DIR}/usr/sbin/policy-rc.d" <<-'EOF'
 #!/bin/sh
 # For most Docker users, "apt-get install" only happens during "docker build",
@@ -598,7 +598,7 @@ EOF
 
   ## Attach base info about build version
   logger_info_message \
-    "attach exclude and include list > " \
+    "attach exclude and include list >" \
     "'${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/docker'"
   cat >"${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/docker" <<-'EOF'
 # This is the "slim" variant of the Debian base image
@@ -693,8 +693,7 @@ EOF
 
   if [[ -d "${ROOTFS_DIR}/etc/apt/apt.conf.d" ]]; then
     ## _keep_ us lean by effectively running "apt-get clean" after every install
-    local apt_get_clean='"rm -f /var/cache/apt/archives/*.deb \
-      /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true";'
+    local apt_get_clean='"rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true";'
     logger_info_message \
       "+ cat > '${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-clean'"
     cat >"${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-clean" <<-EOF
@@ -720,7 +719,7 @@ EOF
 
     ## Remove apt-cache translations for fast "apt-get update"
     logger_info_message \
-      "+ echo Acquire::Languages 'none' > " \
+      "+ echo Acquire::Languages 'none' >" \
       "'${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-no-languages'"
     cat >"${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-no-languages" <<-'EOF'
 # In Docker, we don't often need the "Translations" files, so we're just wasting
@@ -731,7 +730,7 @@ Acquire::Languages "none";
 EOF
 
     logger_info_message \
-      "+ echo Acquire::GzipIndexes 'true' > " \
+      "+ echo Acquire::GzipIndexes 'true' >" \
       "'${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-gzip-indexes'"
     cat >"${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-gzip-indexes" <<-'EOF'
 # Since Docker users using "RUN apt-get update && apt-get install -y ..." in
@@ -749,7 +748,7 @@ EOF
     ## Update "autoremove" configuration to be aggressive about removing
     ## suggests deps that weren't manually installed
     logger_info_message \
-      "+ echo Apt::AutoRemove::SuggestsImportant 'false' > " \
+      "+ echo Apt::AutoRemove::SuggestsImportant 'false' >" \
       "'${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-autoremove-suggests'"
     cat >"${ROOTFS_DIR}/etc/apt/apt.conf.d/docker-autoremove-suggests" <<-'EOF'
 # Since Docker users are looking for the smallest possible final images, the
