@@ -14,7 +14,7 @@ FROM ${image_registry}${image_name}:${image_version} AS base-stage
 SHELL [ "/bin/bash", "-exo", "pipefail", "-c" ]
 
 ## Def initial arg(will be replaced with docker build opt)
-ARG version=1.0.0
+ARG version=2.5.0
 ARG install_additional_tools
 ARG remove_additional_binary
 ARG locale_list_enable

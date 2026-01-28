@@ -891,7 +891,7 @@ __remove_cache() {
 
   ## Calculate dir sizes
   logger_info_message "largest dirs:"
-  logger_info_message "$(du "${ROOTFS_DIR}" | sort -n | tail -n 20)"
+  printf '%s\n' "$(du "${ROOTFS_DIR}" | sort -n | tail -n 20)"
   logger_info_message "build into: '${ROOTFS_DIR}' path"
 
   if __use_qemu_static; then
@@ -1125,10 +1125,12 @@ _test_apt() {
     fi
   fi
 
-  __desc "checking that apt is installed"
+  ## Run 01st test iter
+  __desc "01. checking that apt is installed"
   __test_args dpkg -l apt
 
-  __desc "arch matches"
+  ## Run 02nd test iter
+  __desc "02. arch matches"
   if [[ ${SCF_PLATFORM} == "amd64" ]]; then
     # shellcheck disable=SC2016
     __test_args sh -c \
@@ -1142,33 +1144,33 @@ _test_apt() {
     exit 129
   fi
 
-  ## Run 01st test iter
-  __desc "01. checking that a package can be installed with apt"
+  ## Run 03th test iter
+  __desc "03. checking that a package can be installed with apt"
   __test_args sh -c \
     'apt-get update && apt-get -y install less && less --help >/dev/null'
 
-  ## Run 02nd test iter
+  ## Run 04th test iter
   __desc \
-    "02. checking that a package can be installed with \
-      install_packages and that it removes cache dirs"
+    "04. checking that a package can be installed with" \
+    "install_packages and that it removes cache dirs"
   __test_args sh -c \
     'install_packages less  && less --help >/dev/null && [ ! -e /var/cache/apt/archives ] && [ ! -e /var/lib/apt/lists ]'
 
-  ## Run 03th test iter
-  __desc "03. checking that the debootstrap dir wasn't left in the image"
+  ## Run 05th test iter
+  __desc "05. checking that the debootstrap dir wasn't left in the image"
   __test_args sh -c '[ ! -e /debootstrap ]'
 
-  ## Run 04th test iter
-  __desc "04. check that all base packages are \
-    correctly installed, including dependencies"
+  ## Run 06th test iter
+  __desc "06. check that all base packages are" \
+    "correctly installed, including dependencies"
   ## Ask apt to install all packages that are already installed,
   ## has the effect of checking the dependencies are correctly available
   # shellcheck disable=SC2016
   __test_args sh -c \
     'apt-get update && (dpkg-query -W -f \${Package} | while read pkg; do apt-get install $pkg; done)'
 
-  ## Run 05th test iter
-  __desc "05. check that install_packages doesn't loop forever on failures"
+  ## Run 07th test iter
+  __desc "07. check that install_packages doesn't loop forever on failures"
   ## This won't install and will fail. The key is that the retry loop will stop
   ## after a few iterations. We check that we didn't install the package
   ## afterwards, just in case a package gets added with that name. We wrap the
@@ -1177,15 +1179,15 @@ _test_apt() {
   __test_args sh -c \
     'timeout 360 sh -c "(install_packages thispackagebetternotexist || true) && ! dpkg -l thispackagebetternotexist"'
 
-  ## Run 06th test iter
+  ## Run 08th test iter
   ## See https://github.com/bitnami/minideb/issues/17
-  __desc "06. checking that the terminfo is valid when running with -t"
+  __desc "08. checking that the terminfo is valid when running with -t"
   printf '%s\n' "" \
     | __test_extra_args '-t' sh -c 'install_packages procps && top -d1 -n1 -b'
 
-  ## Run 07th test iter
+  ## Run 09th test iter
   ## See https://github.com/bitnami/minideb/issues/16
-  __desc "07. check that we can install - ${mysql_package}"
+  __desc "09. check that we can install - ${mysql_package}"
   if [[ ${SCF_IMAGE} == *slim* ]]; then
     logger_warning_message "trying with 'slim' exception"
     __test_args install_packages mariadb-server default-mysql-server
@@ -1193,27 +1195,31 @@ _test_apt() {
     __test_args sh -c "install_packages ${mysql_package}"
   fi
 
-  ## Run 08th test iter
+  ## Run 10th test iter
   __desc \
-    "08. check that all users have a fixed day as \
-      the last password change date in /etc/shadow"
+    "10. check that all users have a fixed day as" \
+    "the last password change date in /etc/shadow"
   __shadow_check /etc/shadow
 
-  ## Run 09th test iter
+  ## Run 11th test iter
   __desc \
-    "09. check that all users have a \
-      fixed day as the last password change date in /etc/shadow-"
+    "11. check that all users have a" \
+    "fixed day as the last password change date in /etc/shadow-"
   __shadow_check /etc/shadow-
 
-  ## Run 10th test iter
-  __desc "10. check create system account"
+  ## Run 12th test iter
+  __desc "12. check create system account"
   __test_args sh -c \
     'groupadd -r systemuser --gid=999 && useradd -r -g systemuser --uid=999 --home-dir="/home/user" --shell=/bin/sh systemuser'
 
-  ## Run 11th test iter
-  __desc "11. check create user account"
+  ## Run 13th test iter
+  __desc "13. check create user account"
   __test_args sh -c \
     'groupadd user --gid=1000 && useradd -g user --uid=1000 --home-dir="/home/user" --shell=/bin/sh user'
+
+  ## Run 14th test iter
+  __desc "14. check os-release"
+  __test_args sh -c 'cat /etc/os-release'
 }
 
 ##
@@ -1456,22 +1462,6 @@ EOF
     find /var/cache/debconf/ ! -type d \
     -wholename '/var/cache/debconf/*-old' -delete
 
-  ## Add information about contained package from database
-  # shellcheck disable=SC2016
-  local dpkg_query_template='${db:Status-Abbrev},${binary:Package},${Version},'
-  # shellcheck disable=SC2016
-  dpkg_query_template+='${source:Package},\${Source:Version}\n'
-  mkdir -p "${ROOTFS_DIR}/usr/share/rocks"
-  printf '%s\n%s\n' \
-    "$(echo "# os-release" && cat "${ROOTFS_DIR}/etc/os-release")" \
-    "$(
-      __rootfs_chroot echo "# dpkg-query" \
-        && dpkg-query -f \
-          "${dpkg_query_template}" \
-          -W
-    )" \
-    >"${ROOTFS_DIR}/usr/share/rocks/dpkg.query"
-
   ## Call tweak to set min docker opt
   __docker_tweaks
 
@@ -1483,7 +1473,26 @@ EOF
   printf '%s\n' \
     "Base image container version ${VERSION}" >>"${ROOTFS_DIR}/etc/issue"
   grep -qF 'cat /etc/issue' "${ROOTFS_DIR}/etc/bash.bashrc" \
-    || echo 'cat /etc/issue' >>"${ROOTFS_DIR}/etc/bash.bashrc"
+    || printf '%s\n' 'cat /etc/issue' >>"${ROOTFS_DIR}/etc/bash.bashrc"
+
+  ## Add information about contained package from database
+  # shellcheck disable=SC2016
+  local dpkg_query_template='${db:Status-Abbrev},${binary:Package},${Version},'
+  # shellcheck disable=SC2016
+  dpkg_query_template+='${source:Package},\${Source:Version}\n'
+  mkdir -p "${ROOTFS_DIR}/usr/share/rocks"
+  # "$(<"${ROOTFS_DIR}/etc/os-release")"
+  printf '%s\n%s\n%s\n%s\n' \
+    "# os-release" \
+    "${SCF_IMAGE}" \
+    "# dpkg-query" \
+    "$(
+      __rootfs_chroot \
+        dpkg-query -f \
+        "${dpkg_query_template}" \
+        -W
+    )" \
+    >"${ROOTFS_DIR}/usr/share/rocks/dpkg.query"
 
   logger_info_message \
     "total size chroot after actions: $(du -sh "${ROOTFS_DIR}")"
