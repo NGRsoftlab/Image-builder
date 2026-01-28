@@ -21,16 +21,16 @@ LOCALE_LIST=$(echo "${LOCALE_LIST}" | awk '{for (i=1;i<=NF;i++) if (!a[$i]++) pr
 ## Define locale hardly method
 for i in ${LOCALE_LIST}; do
   ## Define char map
-  CHARACTER_MAP_FILE="$(echo "${i}" | awk -F'.' '{print $2}')"
+  character_map_file="$(echo "${i}" | awk -F'.' '{print $2}')"
 
   ## Redefine UTF8
-  if expr "X${CHARACTER_MAP_FILE}" : 'X[Uu][Tt][Ff]8' >/dev/null; then
-    CHARACTER_MAP_FILE="UTF-8"
+  if expr "X${character_map_file}" : 'X[Uu][Tt][Ff]8' >/dev/null; then
+    character_map_file="UTF-8"
   fi
 
-  INPUT_FILE="$(echo "${i}" | awk -F'.' '{print $1}')"
+  input_file="$(echo "${i}" | awk -F'.' '{print $1}')"
 
-  localedef -i "${INPUT_FILE}" -f "${CHARACTER_MAP_FILE}" "/usr/lib/locale/${i}"
+  localedef -i "${input_file}" -f "${character_map_file}" "/usr/lib/locale/${i}"
 
   ## Check locale
   locale -a | grep -i "${i}"
@@ -40,7 +40,7 @@ for i in ${LOCALE_LIST}; do
   fi
 
   ## Add to generate
-  printf '%s\n' "${i} ${CHARACTER_MAP_FILE}" >>/etc/locale.gen
+  printf '%s\n' "${i} ${character_map_file}" >>/etc/locale.gen
 done
 
 ## Prune all unused locales

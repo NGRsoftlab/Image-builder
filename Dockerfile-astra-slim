@@ -229,7 +229,16 @@ RUN --mount=type=bind,source=./scripts,target=/usr/local/sbin,readonly \
     && apt-clean.sh \
     && rm /root/.bashrc \
     && rm /root/.profile \
-## Def version container
+## Get image package dump
+    mkdir -p /usr/share/rocks \
+    && ( \
+        echo "# os-release" && cat /etc/os-release \
+        && echo "# dpkg-query" \
+        && dpkg-query -f \
+            '${db:Status-Abbrev},${binary:Package},${Version},${source:Package},${Source:Version}\n' \
+            -W \
+        ) >/usr/share/rocks/dpkg.query \
+## Spot system version
     && echo "Minimal Container version ${VERSION}" >>/etc/issue \
 ## Check can be preview /etc/issue
     && { \

@@ -111,10 +111,10 @@ $ install_packages apache2 memcached
 <!-- markdownlint-disable MD033 -->
 <div align="center" class="table-double">
 
-|                                                   Кодовое имя                                                    |    Версия     | Status            |
-| :--------------------------------------------------------------------------------------------------------------: | :-----------: | :---------------- |
-| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.7_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.7.x - 1.7.8 | ✅ Fully supported |
-| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.8_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.8.x - 1.8.3 | ✅ Fully supported |
+|                                                   Кодовое имя                                                    |    Версия     | Status             |
+| :--------------------------------------------------------------------------------------------------------------: | :-----------: | :----------------- |
+| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.7_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.7.x - 1.7.9 | ✅ Fully supported |
+| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.8_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.8.x - 1.8.4 | ✅ Fully supported |
 
 </div>
 
@@ -469,6 +469,7 @@ astra                                        1.8.1-slim          cccccccccccc   
 astra                                        1.8.1               cccccccccccc   5 minutes ago        99.0MB
 astra                                        1.8.2-slim          cccccccccccc   5 minutes ago        97.9MB
 astra                                        1.8.2               cccccccccccc   5 minutes ago        100MB
+... etc
 ```
 
 ## [How use in CI/CD](#contents)
