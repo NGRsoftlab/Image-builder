@@ -1458,21 +1458,20 @@ EOF
     -wholename '/var/cache/debconf/*-old' -delete
 
   ## Add information about contained package from database
-  __rootfs_chroot mkdir -p /usr/share/rocks
-  local os_release os_dpkg_query dpkg_query_template
   # shellcheck disable=SC2016
-  dpkg_query_template='${db:Status-Abbrev},${binary:Package},${Version},'
+  local dpkg_query_template='${db:Status-Abbrev},${binary:Package},${Version},'
   # shellcheck disable=SC2016
   dpkg_query_template+='${source:Package},\${Source:Version}\n'
-  os_release=$(__rootfs_chroot echo "# os-release" && cat /etc/os-release)
-  os_dpkg_query=$(
-    __rootfs_chroot echo "# dpkg-query" \
-      && dpkg-query -f \
-        "${dpkg_query_template}" \
-        -W
-  )
-  __rootfs_chroot echo "${os_release}" >/usr/share/rocks/dpkg.query
-  __rootfs_chroot echo "${os_dpkg_query}" >>/usr/share/rocks/dpkg.query
+  mkdir -p "${ROOTFS_DIR}/usr/share/rocks"
+  printf '%s\n%s\n' \
+    "$(echo "# os-release" && cat "${ROOTFS_DIR}/etc/os-release")" \
+    "$(
+      __rootfs_chroot echo "# dpkg-query" \
+        && dpkg-query -f \
+          "${dpkg_query_template}" \
+          -W
+    )" \
+    >"${ROOTFS_DIR}/usr/share/rocks/dpkg.query"
 
   ## Call tweak to set min docker opt
   __docker_tweaks
