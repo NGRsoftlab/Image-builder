@@ -576,6 +576,7 @@ Error response from daemon: directory '/var/lib/docker/overlay2/84dd6d8ea4091978
 ## Установить jq для удобства работы
 apt update && apt install -y jq
 
+## Для версий 1.7.4-1.7.7 и 1.8.1-1.8.2
 ## Создать конфигурационный файл /etc/docker/daemon.json если он не был создан ранее и указать в нем параметры
 DOCKER_DAEMON_FILE='/etc/docker/daemon.json'
 [[ ! -f ${DOCKER_DAEMON_FILE} ]] || echo "$(jq '. += {"debug" : true, "astra-sec-level" : 6}' ${DOCKER_DAEMON_FILE})" >"${DOCKER_DAEMON_FILE}"
@@ -583,6 +584,16 @@ DOCKER_DAEMON_FILE='/etc/docker/daemon.json'
   mkdir -p "${DOCKER_DAEMON_FILE%/*}"
   echo "{}" >"${DOCKER_DAEMON_FILE}"
   echo "$(jq '. += {"debug" : true, "astra-sec-level" : 6}' ${DOCKER_DAEMON_FILE})" >"${DOCKER_DAEMON_FILE}"
+}
+
+## Для версий >=1.7.8 и >=1.8.3
+## Создать конфигурационный файл /etc/docker/daemon.json если он не был создан ранее и указать в нем параметры
+DOCKER_DAEMON_FILE='/etc/docker/daemon.json'
+[[ ! -f ${DOCKER_DAEMON_FILE} ]] || echo "$(jq '. += {"debug" : true, "scan-on-image-create" : false, "scan-on-container-start": false, "periodic-scan-time-in-hours": 0}' ${DOCKER_DAEMON_FILE})" >"${DOCKER_DAEMON_FILE}"
+[[ -f ${DOCKER_DAEMON_FILE} ]] || {
+  mkdir -p "${DOCKER_DAEMON_FILE%/*}"
+  echo "{}" >"${DOCKER_DAEMON_FILE}"
+  echo "$(jq '. += {"debug" : true, "scan-on-image-create" : false, "scan-on-container-start": false, "periodic-scan-time-in-hours": 0}' ${DOCKER_DAEMON_FILE})" >"${DOCKER_DAEMON_FILE}"
 }
 ```
 
@@ -592,6 +603,7 @@ DOCKER_DAEMON_FILE='/etc/docker/daemon.json'
 ## Выполнить команду
 systemctl edit docker
 
+## Для версий 1.7.4-1.7.7 и 1.8.1-1.8.2
 ## Ввести и сохранить данные
 [Service]
 Environment="DOCKER_OPTS=--astra-sec-level 6"

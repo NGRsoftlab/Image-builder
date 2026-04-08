@@ -40,7 +40,7 @@ repos:
 # --------------------------- 🔍 Code Quality Tools -------------------------- #
   ### Markdown ###
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.20.0
+    rev: v0.22.0
     hooks:
       - id: markdownlint-cli2
         name: "📝 markdown · Format markdown via markdownlint-cli2"
@@ -55,7 +55,7 @@ repos:
         language: system
 
   - repo: https://github.com/errata-ai/vale
-    rev: v3.13.0
+    rev: v3.14.1
     hooks:
       - id: vale
         name: "📝 markdown · Lint markdown via vale"
@@ -75,7 +75,7 @@ repos:
         exclude: ^legacy/
 
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.12.0-2
+    rev: v3.13.0-1
     hooks:
       - id: shfmt
         name: "🐚 shell · Format shell scripts"
@@ -106,7 +106,7 @@ repos:
 
   ### Syntax ###
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
+    rev: v2.4.2
     hooks:
       - id: codespell
         name: "📝 codespell · Validate files for spelling errors"

@@ -19,24 +19,24 @@
 
 ## ISSUES & SOLUTIONS
 ##    If image error like `contains vulnerabilities` - disable built-in vulnerability scanning (not recommended)
-##    Execute `systemctl edit docker`
 ##
-##    Past into(DEPRECATED):
-## [Service]
-## Environment="DOCKER_OPTS=--astra-sec-level 6"
-##
-##   Execute `systemctl restart docker`
-##
-##   Or using a configuration file
+##   Using a configuration file
 ##
 ##   Execute `mkdir -p /etc/docker`
 ##
 ##   Edit `/etc/docker/daemon.json`
 ##
-##   Paste below data
+##   Paste below data(DEPRECATED 1.7.4-1.7.7 and 1.8.1-1.8.2):
 ## {
-## "debug" : true,
-## "astra-sec-level" : 6
+##   "debug" : true,
+##   "astra-sec-level" : 6
+## }
+##   Paste below data(>=1.7.8 and >=1.8.3)
+## {
+##   "debug": true,
+##   "scan-on-image-create": false,
+##   "scan-on-container-start": false,
+##   "periodic-scan-time-in-hours": 0
 ## }
 ##   Execute `systemctl restart docker`
 
@@ -58,13 +58,13 @@
 ## these [[ ... ]] and (( ... )) do not cause syntax errors in POSIX shells,
 ## though they can be parsed differently.
 if [ -z "${BASH_VERSION-}" ]; then
-  printf "[timestamp: %s] [level: ERROR] [file: iuda] %s\n" \
+  printf "[timestamp: %s] [level: ERROR] [file: $(basename "${0}")] %s\n" \
     "$(date +%F' '%T)" "this program needs to be run - 'Bash'"
   exit 33
 fi
 
 if [[ -z ${BASH_VERSINFO-} ]] || ((BASH_VERSINFO[0] < 5)); then
-  printf "[timestamp: %s] [level: ERROR] [file: iuda] %s\n" \
+  printf "[timestamp: %s] [level: ERROR] [file: $(basename "${0}")] %s\n" \
     "$(date +%F' '%T)" "this program needs to be run by 'Bash >= 5.0'"
   exit 33
 fi
@@ -181,7 +181,7 @@ logger_template() {
       ;;
     *)
       printf "[timestamp: %s] [level: %s] [file: %s] %s\n" \
-        "$(date +%F' '%T)" 'ERROR' "$(basename "${0}")" \
+        "$(date +%F' '%T)" 'ERROR' "${PROGRAM}" \
         "undefined log name" >&2
       exit 1
       ;;
