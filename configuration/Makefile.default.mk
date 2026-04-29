@@ -1,4 +1,6 @@
 SHELL                         = /bin/bash
+EMPTY                         :=
+SPACE                         := $(EMPTY) $(EMPTY)
 MAKEFILE_LOCATION             = $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 BUILD_TAG                     = $(CONTAINER_BUILD_TAG)
 REGISTRY                      = $(CONTAINER_PUBLISH_REGISTRY)
@@ -10,7 +12,9 @@ IMAGE_ARGS                    = $(CONTAINER_ADDITIONAL_ARGS)
 DOCKER_BIN                    ?= $(if $(CONTAINER_BIN),$(CONTAINER_BIN),docker)
 IMAGE_NAME                    ?= $(if $(CONTAINER_IMAGE_NAME),$(CONTAINER_IMAGE_NAME),astra)
 IMAGE_BUILDER_FILE            ?= $(if $(CONTAINER_IMAGE_BUILDER_FILE),$(CONTAINER_IMAGE_BUILDER_FILE),Dockerfile-astra-slim)
-SUPPORTED_TAGS                := 1.7.5 1.7.6 1.7.7 1.7.8 1.7.9 1.7.x 1.8.1 1.8.2 1.8.3 1.8.4 1.8.x
+CERTIFICATION_ARG             ?= $(if $(ALLOW_CERTIFICATION),-z,$(EMPTY))
+CERTIFICATION_SUFFIX          ?= $(if $(ALLOW_CERTIFICATION),-certified,$(EMPTY))
+SUPPORTED_TAGS                := 1.7.5 1.7.6 1.7.7 1.7.8 1.7.9 1.7.x 1.8.1 1.8.2 1.8.3 1.8.4 1.8.5 1.8.x
 
 ## Define arch
 ifneq ($(filter $(BUILD_TAG),$(SUPPORTED_TAGS)),)
@@ -23,29 +27,43 @@ endif
 
 ## To see all colors, run:
 #+ bash -c 'for c in {0..255}; do tput setaf "${c}"; tput setaf "${c}" | cat -v; echo ="${c}"; done'
+#+ Array color def
+# for c in {0..255}; do
+#   printf "\033[38;5;%dm COLOR_%03d \033[0m" "${c}" "${c}"
+#   printf " -> Raw: "
+#   printf "\033[38;5;%dm" "${c}" | cat -v
+#   printf "\n"
+# done
+#+ Color in table view
+# for c in {0..255}; do
+#   printf "\033[38;5;%dm %3d \033[0m" "${c}" "${c}"
+#   (( (c + 1) % 8 == 0 )) && echo
+# done
 ## The first 15 entries are the 8-bit colors
 ## For work needed set TERM to xterm: 'export TERM=xterm-256color'
 ## Define standard colors
 ifneq (,$(findstring xterm,${TERM}))
-	BLACK                       := $(shell tput -Txterm setaf 0)
-	RED                         := $(shell tput -Txterm setaf 1)
-	GREEN                       := $(shell tput -Txterm setaf 2)
-	YELLOW                      := $(shell tput -Txterm setaf 3)
-	LIGHTPURPLE                 := $(shell tput -Txterm setaf 4)
-	PURPLE                      := $(shell tput -Txterm setaf 5)
-	BLUE                        := $(shell tput -Txterm setaf 6)
-	WHITE                       := $(shell tput -Txterm setaf 7)
-	RESET                       := $(shell tput -Txterm sgr0)
+	RESET   := \033[0m
+	BLACK   := \033[38;5;0m
+	RED     := \033[38;5;9m
+	GREEN   := \033[38;5;10m
+	YELLOW  := \033[38;5;11m
+	BLUE    := \033[38;5;12m
+	PURPLE  := \033[38;5;13m
+	CYAN    := \033[38;5;14m
+	WHITE   := \033[38;5;255m
+	BOLD    := \033[1m
 else
-	BLACK                       := ""
-	RED                         := ""
-	GREEN                       := ""
-	YELLOW                      := ""
-	LIGHTPURPLE                 := ""
-	PURPLE                      := ""
-	BLUE                        := ""
-	WHITE                       := ""
-	RESET                       := ""
+	RESET   := ""
+	BLACK   := ""
+	RED     := ""
+	GREEN   := ""
+	YELLOW  := ""
+	BLUE    := ""
+	PURPLE  := ""
+	CYAN    := ""
+	WHITE   := ""
+	BOLD    := ""
 endif
 
 ## Set target color
@@ -66,14 +84,15 @@ default:
 	@$(MAKE) -f $(MAKEFILE_LOCATION) --no-print-directory help
 
 help-colors: ## Show all the colors
-	@echo "${BLACK}BLACK${RESET}"
-	@echo "${RED}RED${RESET}"
-	@echo "${GREEN}GREEN${RESET}"
-	@echo "${YELLOW}YELLOW${RESET}"
-	@echo "${LIGHTPURPLE}LIGHTPURPLE${RESET}"
-	@echo "${PURPLE}PURPLE${RESET}"
-	@echo "${BLUE}BLUE${RESET}"
-	@echo "${WHITE}WHITE${RESET}"
+	@echo -e "${BLACK}BLACK${RESET}"
+	@echo -e "${RED}RED${RESET}"
+	@echo -e "${GREEN}GREEN${RESET}"
+	@echo -e "${YELLOW}YELLOW${RESET}"
+	@echo -e "${BLUE}BLUE${RESET}"
+	@echo -e "${PURPLE}PURPLE${RESET}"
+	@echo -e "${CYAN}CYAN${RESET}"
+	@echo -e "${WHITE}WHITE${RESET}"
+	@echo -e "${BOLD}BOLD${RESET}"
 
 help:
 	@grep --no-filename -E '^[a-zA-Z_0-9%-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -83,7 +102,7 @@ help:
 target-list: ## Show Makefile available target
 	@bash -c "$(MAKE) -f $(MAKEFILE_LOCATION) -p no_targets__ \
 		| awk -F':' '/^[a-zA-Z0-9][^\$$#\/\\t=]*:([^=]|$$)/ {split(\$$1,A,/ /);for(i in A)print A[i]}' \
-		| grep -v '__\$$' | grep -vE '*[1]' | grep -vE 'Makefile*' \
+		| grep -v '__\$$' | grep -vE '.*[1]' | grep -vE 'Makefile*' \
 		| sort"
 
 ## Check if 'CONTAINER_SKIP_SLIM' is 'TRUE' then run targets without create slim
@@ -94,43 +113,69 @@ all: variables-list build push slim clean
 endif
 
 # Put this at the point where you want to see the variable values
-variables-list: ## Show variables defined on this Makefile build
-	$(foreach v, $(.VARIABLES), $(if $(filter file,$(origin $(v))), $(info $(v)=$($(v)))))
-	@echo "${GREEN}---VARIABLES PREVIEW IS OVER---${RESET}"
+variables-list-full: ## Show ALL variables including macros(debug)
+	@$(foreach v, $(sort $(.VARIABLES)), \
+		$(if $(filter-out default automatic environment,$(origin $(v))), \
+		$(info $(v) [$(origin $(v))/$(flavor $(v))] = $(value $(v)))))
+	@echo -e "${GREEN}---FULL VARIABLES PREVIEW IS OVER---${RESET}"
+	@echo
+
+variables-list: ## Show user-defined variables
+	@$(foreach v, \
+		$(filter-out $(HIDE_VARS),$(sort $(.VARIABLES))), \
+		$(if $(filter-out default automatic environment,$(origin $(v))), \
+		$(info $(v) = $($(v)))))
+	@echo -e "${GREEN}---VARIABLES PREVIEW IS OVER---${RESET}"
 	@echo
 
 build: ## Building release build
 	@echo
-	@echo "${YELLOW}---BUILD ASTRA IMAGE---${RESET}"
-	$(SCRIPT_FILE) -t $(BUILD_TAG) -c $(ARCHITECTURE) -r $(REPOSITORY) $(SCRIPT_ARGS)
-	@echo "${GREEN}---END BUILD ASTRA IMAGE---${RESET}"
+	@echo -e "${YELLOW}---BUILD ASTRA IMAGE---${RESET}"
+	$(SCRIPT_FILE) -t $(BUILD_TAG) -c $(ARCHITECTURE) -r $(REPOSITORY) $(CERTIFICATION_ARG) $(SCRIPT_ARGS)
+	@echo -e "${GREEN}---END BUILD ASTRA IMAGE---${RESET}"
 
 push: build ## Tag and push image to registry
 	@echo
-	@echo "${YELLOW}---PUSH ASTRA IMAGE---${RESET}"
-	$(DOCKER_BIN) tag $(IMAGE_NAME):$(BUILD_TAG) $(REGISTRY)/astra:$(BUILD_TAG)
-	$(DOCKER_BIN) push $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)
-	@echo "${GREEN}---END PUSH ASTRA IMAGE---${RESET}"
+	@echo -e "${YELLOW}---PUSH ASTRA IMAGE---${RESET}"
+	$(DOCKER_BIN) tag $(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX) $(REGISTRY)/astra:$(BUILD_TAG)$(CERTIFICATION_SUFFIX)
+	$(DOCKER_BIN) push $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX)
+	@echo -e "${GREEN}---END PUSH ASTRA IMAGE---${RESET}"
 	@echo
-	@echo "${YELLOW}---CALCULATE ASTRA IMAGE SIZE---${RESET}"
-	@echo "Size of $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG):"
-	@$(DOCKER_BIN) image inspect --format '{{.Size}}' $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG) | numfmt --to=si
-	@echo "${GREEN}---END CALCULATE ASTRA IMAGE SIZE---${RESET}"
+	@echo -e "${YELLOW}---CALCULATE ASTRA IMAGE SIZE---${RESET}"
+	@echo "Size of $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX):"
+	@$(DOCKER_BIN) image inspect --format '{{.Size}}' $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX) | numfmt --to=si
+	@echo -e "${GREEN}---END CALCULATE ASTRA IMAGE SIZE---${RESET}"
+	@echo
+	@echo -e "${YELLOW}---CHECK TAG LIST---${RESET}"
+	@if command -v jq >/dev/null; then \
+		$(DOCKER_BIN) inspect $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX) --format '{{json .Config.Labels}}' | jq .; \
+	else \
+		$(DOCKER_BIN) inspect $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX) --format '{{json .Config.Labels}}'; \
+	fi
+	@echo -e "${GREEN}---END CHECK TAG LIST---${RESET}"
 	@echo
 
 slim: build ## Build and push slim image
 	@echo
-	@echo "${YELLOW}---BUILD $(IMAGE_TAG_SUFFIX)---${RESET}"
-	$(DOCKER_BIN) build --progress=plain -f $(IMAGE_BUILDER_FILE) --build-arg image_registry=$(REGISTRY)/ --build-arg image_version=$(BUILD_TAG) -t $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)-$(IMAGE_TAG_SUFFIX) $(IMAGE_ARGS) .
-	$(DOCKER_BIN) push $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)-$(IMAGE_TAG_SUFFIX)
-	@echo "${GREEN}---END BUILD $(IMAGE_TAG_SUFFIX)---${RESET}"
+	@echo -e "${YELLOW}---BUILD $(IMAGE_TAG_SUFFIX)---${RESET}"
+	$(DOCKER_BIN) build --progress=plain -f $(IMAGE_BUILDER_FILE) --build-arg image_registry=$(REGISTRY)/ --build-arg image_version=$(BUILD_TAG)$(CERTIFICATION_SUFFIX) -t $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX)-$(IMAGE_TAG_SUFFIX) $(IMAGE_ARGS) .
+	$(DOCKER_BIN) push $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX)-$(IMAGE_TAG_SUFFIX)
+	@echo -e "${GREEN}---END BUILD $(IMAGE_TAG_SUFFIX)---${RESET}"
 	@echo
-	@echo "${YELLOW}---CALCULATE ASTRA IMAGE SIZE---${RESET}"
-	@echo "Size of $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)-$(IMAGE_TAG_SUFFIX):"
-	@$(DOCKER_BIN) image inspect --format '{{.Size}}' $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)-$(IMAGE_TAG_SUFFIX) | numfmt --to=si
-	@echo "${GREEN}---END CALCULATE ASTRA IMAGE SIZE---${RESET}"
+	@echo -e "${YELLOW}---CALCULATE ASTRA IMAGE SIZE---${RESET}"
+	@echo "Size of $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX)-$(IMAGE_TAG_SUFFIX):"
+	@$(DOCKER_BIN) image inspect --format '{{.Size}}' $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX)-$(IMAGE_TAG_SUFFIX) | numfmt --to=si
+	@echo -e "${GREEN}---END CALCULATE ASTRA IMAGE SIZE---${RESET}"
+	@echo
+	@echo -e "${YELLOW}---CHECK TAG LIST---${RESET}"
+	@if command -v jq >/dev/null; then \
+		$(DOCKER_BIN) inspect $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX)-$(IMAGE_TAG_SUFFIX) --format '{{json .Config.Labels}}' | jq .; \
+	else \
+		$(DOCKER_BIN) inspect $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX)-$(IMAGE_TAG_SUFFIX) --format '{{json .Config.Labels}}'; \
+	fi
+	@echo -e "${GREEN}---END CHECK TAG LIST---${RESET}"
 	@echo
 
 clean: ## Cleanup images
-	@$(DOCKER_BIN) image prune -f
-	@$(DOCKER_BIN) rmi $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)-$(IMAGE_TAG_SUFFIX) $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG) $(IMAGE_NAME):$(BUILD_TAG) || true
+	@$(DOCKER_BIN) image prune -f || true
+	@$(DOCKER_BIN) rmi $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX)-$(IMAGE_TAG_SUFFIX) $(REGISTRY)/$(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX) $(IMAGE_NAME):$(BUILD_TAG)$(CERTIFICATION_SUFFIX) || true

@@ -11,7 +11,10 @@ __is_command() {
 : "${1:?}"
 
 ## Ensure 'jdupes' exists
-__is_command jdupes || apt-install.sh jdupes
+if ! __is_command jdupes; then
+  ## Fallback - soft skip if package not found
+  apt-install.sh jdupes || return 0
+fi
 
 ## Calculate space before 'jdupes' use
 echo

@@ -2,53 +2,42 @@
 ## GNU bash, version 5.2.15(1)-release (x86_64-pc-linux-gnu)
 
 ## DESCRIPTION
+##
 ##   This script can create images based on Astra Linux (Debian-like system)
-##   To run you need to have docker.io and debootstrap. The following system
-##   versions are supported:
-##   1.7.2, 1.7.3, 1.7.4, 1.7.5, 1.7.6, 1.7.7, 1.7.8, 1.7.9, 1.7.x (latest updated version),
-##   1.8.1, 1.8.2, 1.8.3, 1.8.4, 1.8.x (latest updated version)
+##   To run you need to have docker.io and debootstrap
+##   The following system versions are supported:
+##   1.7.2 - 1.7.x (latest updated version)
+##   1.8.1 - 1.8.x (latest updated version)
 
 ## EXAMPLE USAGE
+##
 ##   Help
 ##     ./build-astra-image.sh -h
+##
 ##   Build specific image
-##     ./build-astra-image.sh -t 1.7.2 \
-##                            -c 1.7_x86-64 \
-##                            -r https://dl.astralinux.ru/astra/frozen/1.7_x86-64/1.7.2/repository \
-##                            -i my-astra-image-name
-
-## ISSUES & SOLUTIONS
-##    If image error like `contains vulnerabilities` - disable built-in vulnerability scanning (not recommended)
-##
-##   Using a configuration file
-##
-##   Execute `mkdir -p /etc/docker`
-##
-##   Edit `/etc/docker/daemon.json`
-##
-##   Paste below data(DEPRECATED 1.7.4-1.7.7 and 1.8.1-1.8.2):
-## {
-##   "debug" : true,
-##   "astra-sec-level" : 6
-## }
-##   Paste below data(>=1.7.8 and >=1.8.3)
-## {
-##   "debug": true,
-##   "scan-on-image-create": false,
-##   "scan-on-container-start": false,
-##   "periodic-scan-time-in-hours": 0
-## }
-##   Execute `systemctl restart docker`
+##     ./build-astra-image.sh \
+##        -t 1.7.2 \
+##        -c 1.7_x86-64 \
+##        -r https://dl.astralinux.ru/astra/frozen/1.7_x86-64/1.7.2/repository \
+##        -i my-astra-image-name
 
 ## EXIT CODES
-##   33:
-##     Bash not found
+##
+##   1:
+##     Common errors
+##
 ##   5:
 ##     Help text was shown
+##
+##   33:
+##     Bash not found
+##
 ##   127:
 ##     Utility not found; you must install it because this script depends on it
+##
 ##   128:
 ##     Unsupported distribution version
+##
 ##   129:
 ##     Unknown platform arch
 
@@ -1024,6 +1013,161 @@ __import() {
   printf '%s' "${id}"
 }
 
+#######################################
+# Generates a UUID based on a desired length
+# GLOBALS:
+#   RANDOM
+# ARGUMENTS:
+#   none
+# OUTPUTS:
+#   Write to stdout
+# RETURNS:
+#   UUID or 1 if not
+#######################################
+__generate_uuid() {
+  local number
+  ## UUID v4 - always 36 characters
+  local length=36
+  local combination='89ab'
+  local re='[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
+  local uuid=""
+
+  for ((number = 0; number < "${length}"; ++number)); do
+    case "${number}" in
+      8 | 13 | 18 | 23)
+        ## Hyphen positions
+        uuid+='-'
+        ;;
+      14)
+        ## Version nibble should be 4
+        uuid+='4'
+        ;;
+      19)
+        ## Nibble should be 8,9,a,b
+        uuid+="${combination:RANDOM%4:1}"
+        ;;
+      ## HEX symbols
+      *)
+        ## RANDOM gives 0-32767, take the lower 4 bits for 0-f
+        uuid+=$(printf '%x' $((RANDOM % 16)))
+        ;;
+    esac
+  done
+
+  [[ ${uuid} =~ ^${re}$ ]] || return 1
+
+  printf '%s' "${uuid}"
+}
+
+#############################################
+# Generate like CycloneDX artifact for cetrtification image
+# GLOBALS:
+#   ROOTFS_DIR
+#   SCF_IMAGE
+#   SCF_TAG_NAME
+# ARGUMENTS:
+#   none
+# RETURNS:
+#   sbom-cert.json
+#############################################
+__generate_sbom() {
+  [[ ${SCF_CERTIFICATION_ENABLE} == "true" ]] || return 0
+  local sbom_file="${ROOTFS_DIR}/usr/share/rocks/sbom-cert.json"
+  local cache_dir="${ROOTFS_DIR}/var/cache/apt/archives"
+
+  cat >"${sbom_file}" <<EOF
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "version": 1,
+  "serialNumber": "urn:uuid:$(__generate_uuid)",
+  "metadata": {
+    "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "tools": [{"name": "${0##*/}", "version": "${VERSION:-unknown}"}],
+    "component": {
+      "type": "container",
+      "name": "${SCF_IMAGE}",
+      "version": "${SCF_TAG_NAME}",
+      "purl": "pkg:oci/${SCF_IMAGE}@${SCF_TAG_NAME}"
+    }
+  },
+  "components": [
+EOF
+
+  ## Get package list
+  local first="true"
+  local is_last="false"
+  local count_package
+  # shellcheck disable=SC2016
+  count_package=$(__rootfs_chroot dpkg-query -W -f='${binary:Package}\n' | wc -l)
+  local counter=0
+  # shellcheck disable=SC2016
+  while IFS=$'\t' read -r pkg_name pkg_version pkg_arch; do
+    [[ -n ${pkg_name} ]] || continue
+
+    ## Increment counter
+    : $((counter++))
+
+    ## Found .deb in cache
+    local deb_file=""
+    local hash_value="unknown"
+
+    ## Found packages
+    local -a serarch_patterns=(
+      "${pkg_name}_${pkg_version}_${pkg_arch}.deb"
+      "${pkg_name}_${pkg_version}_*.deb"
+      "${pkg_name}_*_${pkg_arch}.deb"
+    )
+    for pattern in "${serarch_patterns[@]}"; do
+      deb_file=$(
+        find "${cache_dir}" \
+          -name "${pattern}" \
+          -type f 2>/dev/null \
+          | head -n1
+      )
+      [[ -z ${deb_file} ]] || break
+    done
+
+    ## Calculate cache hash
+    if [[ -n ${deb_file} && -f ${deb_file} ]]; then
+      hash_value=$(sha256sum "${deb_file}" | cut -d' ' -f1)
+    else
+      ## Attention if component cache not found
+      logger_warning_message "Cache file for ${pkg_name}=${pkg_version} not found, hash=unknown"
+    fi
+
+    ## Forming purl (Package URL)
+    local purl="pkg:deb/astra/${pkg_name}@${pkg_version}?arch=${pkg_arch}"
+
+    ## If first - skip quoting
+    if [[ ${first} == "true" ]]; then
+      first="false"
+    fi
+
+    ## If last skip init
+    if [[ ${counter} -eq ${count_package} ]]; then
+      is_last="true"
+    fi
+
+    ## Each component JSON
+    cat >>"${sbom_file}" <<EOF
+    {
+      "type": "library",
+      "name": "${pkg_name}",
+      "version": "${pkg_version}",
+      "purl": "${purl}",
+      "hashes": [{"alg":"SHA-256","content":"${hash_value}"}]
+    }$([[ ${first} == "false" && ${is_last} == "false" ]] && printf '%s' ',')
+EOF
+  done < <(__rootfs_chroot dpkg-query -W -f='${binary:Package}\t${Version}\t${Architecture}\n')
+
+  ## Ended JSON
+  cat >>"${sbom_file}" <<EOF
+  ]
+}
+EOF
+}
+
 ##
 ## TEST FUNCTION
 ##
@@ -1109,7 +1253,7 @@ __shadow_check() {
 #############################################
 _test_apt() {
   local qemu_static_file
-  local mysql_package='default-mysql-server'
+  local postgres_package='postgresql'
   BIND_MOUNTS=()
   DOCKER_PLATFORM_ARGS=()
 
@@ -1186,14 +1330,8 @@ _test_apt() {
     | __test_extra_args '-t' sh -c 'install_packages procps && top -d1 -n1 -b'
 
   ## Run 09th test iter
-  ## See https://github.com/bitnami/minideb/issues/16
-  __desc "09. check that we can install - ${mysql_package}"
-  if [[ ${SCF_IMAGE} == *slim* ]]; then
-    logger_warning_message "trying with 'slim' exception"
-    __test_args install_packages mariadb-server default-mysql-server
-  else
-    __test_args sh -c "install_packages ${mysql_package}"
-  fi
+  __desc "09. check that we can install - ${postgres_package}"
+  __test_args sh -c "install_packages ${postgres_package}"
 
   ## Run 10th test iter
   __desc \
@@ -1265,6 +1403,7 @@ $(__decor "$(logger_tty_tab)" "2") -c CODENAME $(__decor "$(logger_tty_tab)" "2"
 $(__decor "$(logger_tty_tab)" "2") -r REPOSITORY $(__decor "$(logger_tty_tab)" "2") address of the repository, such as '-r ${astra_stable_url}' or '-r ${astra_frozen_url}' and in the same vein
 $(__decor "$(logger_tty_tab)" "2") -i IMAGE NAME $(__decor "$(logger_tty_tab)" "2") name of the image being created
 $(__decor "$(logger_tty_tab)" "2") -p PLATFORM $(__decor "$(logger_tty_tab)" "2") platform (based on dpkg --print-architecture command)
+$(__decor "$(logger_tty_tab)" "2") -z $(__decor "$(logger_tty_tab)" "3") enable certification image
 
 AUTHOR:
 $(__decor "$(logger_tty_tab)" "2") Written by ${COMPANY_NAME}.
@@ -1345,23 +1484,31 @@ build() {
   [[ -d ${build_dir} ]] || mkdir -p "${build_dir}"
 
   case "${SCF_TAG_NAME}" in
-    1.8.x | 1.8.4 | 1.8.3 | 1.8.2 | 1.8.1)
+    1.8.x | 1.8.5 | 1.8.4 | 1.8.3 | 1.8.2 | 1.8.1)
       debootstrap_arch_args+=(
         "--components=main,contrib,non-free,non-free-firmware"
       )
-      mapfile -t debootstrap_additional_source_list <<EOF
-deb ${SCF_REPO_URL}-extended/ 1.8_x86-64 main contrib non-free non-free-firmware
-EOF
+      debootstrap_additional_source_list+=(
+        "deb ${SCF_REPO_URL}-hotfix/ 1.8_x86-64-hotfix-main main contrib non-free non-free-firmware"
+      )
+      if [[ ${SCF_CERTIFICATION_ENABLE} == "false" ]]; then
+        debootstrap_additional_source_list+=(
+          "deb ${SCF_REPO_URL}-extended/ 1.8_x86-64 main contrib non-free non-free-firmware"
+          "deb ${SCF_REPO_URL}-hotfix/ 1.8_x86-64-hotfix-extended main contrib non-free non-free-firmware"
+        )
+      fi
       ;;
     1.7.x | 1.7.9 | 1.7.8 | 1.7.7 | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
       debootstrap_arch_args+=(
         "--components=main,contrib,non-free"
       )
-      mapfile -t debootstrap_additional_source_list <<EOF
-deb ${SCF_REPO_URL}-base/ 1.7_x86-64 main contrib non-free
-deb ${SCF_REPO_URL}-extended/ 1.7_x86-64 main contrib non-free
-deb ${SCF_REPO_URL}-update/ 1.7_x86-64 main contrib non-free
-EOF
+      if [[ ${SCF_CERTIFICATION_ENABLE} == "false" ]]; then
+        debootstrap_additional_source_list+=(
+          "deb ${SCF_REPO_URL}-base/ 1.7_x86-64 main contrib non-free"
+          "deb ${SCF_REPO_URL}-extended/ 1.7_x86-64 main contrib non-free"
+          "deb ${SCF_REPO_URL}-update/ 1.7_x86-64 main contrib non-free"
+        )
+      fi
       ;;
     *)
       logger_error_message "unsupported OS type"
@@ -1396,7 +1543,7 @@ EOF
     local usr_bin_modification_time
     logger_info_message "setting up qemu static in chroot"
     usr_bin_modification_time=$(stat -c %y "${ROOTFS_DIR}"/usr/bin)
-    if [[ -f "/usr/bin/qemu-aarch64-static" ]]; then
+    if [[ -f /usr/bin/qemu-aarch64-static ]]; then
       find /usr/bin/ \
         -type f \
         -name 'qemu-*-static' \
@@ -1422,6 +1569,16 @@ EOF
 
   ## Update cache in chroot
   __rootfs_chroot apt-get update
+
+  ## Install actual hotfix update
+  __rootfs_chroot \
+    apt-get install -y --no-install-recommends astra-update
+  __rootfs_chroot astra-update -A -r -T
+  __rootfs_chroot cat /etc/astra/hotfix_version
+
+  ## Generate sbom if certified
+  mkdir -p "${ROOTFS_DIR}/usr/share/rocks"
+  __generate_sbom
 
   ## Calculate build data
   __calculate_build_data
@@ -1480,9 +1637,8 @@ EOF
   local dpkg_query_template='${db:Status-Abbrev},${binary:Package},${Version},'
   # shellcheck disable=SC2016
   dpkg_query_template+='${source:Package},\${Source:Version}\n'
-  mkdir -p "${ROOTFS_DIR}/usr/share/rocks"
   # "$(<"${ROOTFS_DIR}/etc/os-release")"
-  printf '%s\n%s\n%s\n%s\n' \
+  printf '%s\n%s\n%s\n%s\n%s\n%s\n' \
     "# os-release" \
     "${SCF_IMAGE}" \
     "# dpkg-query" \
@@ -1491,6 +1647,16 @@ EOF
         dpkg-query -f \
         "${dpkg_query_template}" \
         -W
+    )" \
+    "---" \
+    "$(
+      __rootfs_chroot \
+        find /usr/lib /usr/bin \
+        -name "*.so*" \
+        -o -name "bash" \
+        -o -name "sh" 2>/dev/null \
+        | xargs sha256sum 2>/dev/null \
+        | sort
     )" \
     >"${ROOTFS_DIR}/usr/share/rocks/dpkg.query"
 
@@ -1555,6 +1721,7 @@ EOF
 #   SCF_IMAGE
 #   DEBIAN_FRONTEND
 #   SCF_DOCKER_SAVE_ACTION
+#   SCF_CERTIFICATION_ENABLE
 #   SECONDS
 # ARGUMENTS:
 #   $@, passed args from internal call
@@ -1564,7 +1731,7 @@ EOF
 main() {
   local option
   ## Set options
-  while getopts 't:c:r:p:i:dhvs' option; do
+  while getopts 't:c:r:p:i:dhvsz' option; do
     case "${option}" in
       t)
         SCF_TAG_NAME="${OPTARG}"
@@ -1595,6 +1762,10 @@ main() {
       s)
         SCF_SYNTHETIC_TEST_ENABLE=1
         ;;
+      z)
+        SCF_CERTIFICATION_ENABLE="true"
+        SCF_CERTIFICATION_IMAGE_SUFFIX="-certified"
+        ;;
       ?)
         _usage
         exit 5
@@ -1610,11 +1781,17 @@ main() {
   : "${SCF_IMAGE_NAME:=astra}"
   : "${SCF_PLATFORM:=$(dpkg --print-architecture)}"
   : "${SCF_DEBUG:=OFF}"
+  : "${SCF_CERTIFICATION_ENABLE:=false}"
+  : "${SCF_CERTIFICATION_IMAGE_SUFFIX:=false}"
 
-  SCF_IMAGE="${SCF_IMAGE_NAME}:${SCF_TAG_NAME}"
+  if [[ ${SCF_CERTIFICATION_IMAGE_SUFFIX} == "false" ]]; then
+    SCF_IMAGE="${SCF_IMAGE_NAME}:${SCF_TAG_NAME}"
+  else
+    SCF_IMAGE="${SCF_IMAGE_NAME}:${SCF_TAG_NAME}${SCF_CERTIFICATION_IMAGE_SUFFIX}"
+  fi
   DEBIAN_FRONTEND=noninteractive
   export SCF_TAG_NAME SCF_PLATFORM SCF_IMAGE_NAME
-  export SCF_DEBUG SCF_IMAGE DEBIAN_FRONTEND
+  export SCF_DEBUG SCF_IMAGE DEBIAN_FRONTEND SCF_CERTIFICATION_ENABLE
 
   ## Info before launch
   logger_info_message "Final launch variables:"
@@ -1628,6 +1805,9 @@ main() {
     "Platform architecture: $(logger_tty_tab)${SCF_PLATFORM}"
   logger_info_message \
     "Enable debug: $(__decor "$(logger_tty_tab)" "4")${SCF_DEBUG}"
+  logger_info_message \
+    "Enable certification:" \
+    "$(__decor "$(logger_tty_tab)" "3")${SCF_CERTIFICATION_ENABLE}"
   __decor "*" "200"
 
   ## Set debug

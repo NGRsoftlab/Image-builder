@@ -35,8 +35,6 @@ COPY docs/issue-slim /etc/issue
 ## Install requirements
 RUN --mount=type=bind,source=./scripts,target=/usr/local/sbin,readonly \
     apt-install.sh \
-## Small init process
-        dumb-init \
 ## Configure locales
         locales \
 ## Additional tools
@@ -237,7 +235,7 @@ RUN --mount=type=bind,source=./scripts,target=/usr/local/sbin,readonly \
         && dpkg-query -f \
             '${db:Status-Abbrev},${binary:Package},${Version},${source:Package},${Source:Version}\n' \
             -W \
-        ) >/usr/share/rocks/dpkg.query \
+        ) >/usr/share/rocks/dpkg.slim.query \
 ## Spot system version
     && echo "Minimal Container version ${VERSION}" >>/etc/issue \
 ## Check can be preview /etc/issue
@@ -271,5 +269,4 @@ ENV \
 ## Set work directory
 WORKDIR /
 
-ENTRYPOINT [ "dumb-init", "--" ]
 CMD [ "/bin/bash" ]
