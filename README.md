@@ -114,8 +114,8 @@ $ install_packages apache2 memcached
 
 |                                                   Кодовое имя                                                    |    Версия     | Status             |
 | :--------------------------------------------------------------------------------------------------------------: | :-----------: | :----------------- |
-| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.7_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.7.x - 1.7.9 | ✅ Fully supported |
-| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.8_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.8.x - 1.8.4 | ✅ Fully supported |
+| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.7_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.7.2 - 1.7.x | ✅ Fully supported |
+| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.8_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.8.1 - 1.8.x | ✅ Fully supported |
 
 </div>
 
@@ -604,6 +604,9 @@ $ systemctl restart gitlab-runner
 
 ## [Issues and solutions](#contents)
 
+> [!warning]
+> Используйте данный способ только для отладки
+
 При появлении подобного сообщения об ошибке, как в примере ниже, необходимо использовать актуальный образ или отключить встроенную проверку уязвимости
 
 ```plaintext
@@ -676,9 +679,9 @@ Environment="DOCKER_OPTS=--astra-sec-level 6"
 <!-- markdownlint-disable MD033 MD041 MD051 -->
 
 <table align="center"><tr><td align="center" width="9999">
-<img src="docs/images/cya.gif" align="center"  alt="Billy Herrington gif">
+<img src="docs/images/cya.gif" align="center"  alt="Mystical Wanderer gif">
 
-<div align="center"> <sub> Billy Herrington in the forge of Skyrim. </sub> </div>
+<div align="center"> <sub> Mystical Wanderer in the forge of Skyrim. </sub> </div>
 
 ### [Cya!](#contents)
 
