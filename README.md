@@ -68,7 +68,7 @@
   - [How use in CI/CD](#how-use-in-cicd)
   - [Issues and solutions](#issues-and-solutions)
   - [Contributing](#contributing)
-    - [Cya!](#cya)
+    - [Cya](#cya)
 
 ## [Requirements](#contents)
 
@@ -112,10 +112,10 @@ $ install_packages apache2 memcached
 <!-- markdownlint-disable MD033 -->
 <div align="center" class="table-double">
 
-|                                                   Кодовое имя                                                    |    Версия     | Status             |
-| :--------------------------------------------------------------------------------------------------------------: | :-----------: | :----------------- |
-| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.7_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.7.2 - 1.7.x | ✅ Fully supported |
-| ![Astra 1.7_x86-64](https://img.shields.io/badge/Astra-1.8_x86--64-00ADD8?style=flat&logo=astra&logoColor=white) | 1.8.1 - 1.8.x | ✅ Fully supported |
+|            Кодовое имя             |    Версия     | Status                      |
+| :--------------------------------: | :-----------: | :-------------------------- |
+| ![Astra 1.7_x86-64][astra-img-1.7] | 1.7.2 - 1.7.x | ![Supported][supported-img] |
+| ![Astra 1.7_x86-64][astra-img-1.8] | 1.8.1 - 1.8.x | ![Supported][supported-img] |
 
 </div>
 
@@ -130,13 +130,22 @@ $ install_packages apache2 memcached
 <!-- markdownlint-disable MD033 -->
 <div align="center" class="table-double">
 
-|                                           Версия Astra                                            |                                               Версия Debian                                                |
-| :-----------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------: |
-| ![Astra 1.6](https://img.shields.io/badge/Astra-1.6-00ADD8?style=flat&logo=astra&logoColor=white) |  ![Debian](https://img.shields.io/badge/Debian-9-D70A53?style=flat&logo=debian&logoColor=white) (Stretch)  |
-| ![Astra 1.7](https://img.shields.io/badge/Astra-1.7-00ADD8?style=flat&logo=astra&logoColor=white) |  ![Debian](https://img.shields.io/badge/Debian-10-D70A53?style=flat&logo=debian&logoColor=white) (Buster)  |
-| ![Astra 1.8](https://img.shields.io/badge/Astra-1.8-00ADD8?style=flat&logo=astra&logoColor=white) | ![Debian](https://img.shields.io/badge/Debian-12-D70A53?style=flat&logo=debian&logoColor=white) (Bookworm) |
+|        Версия Astra         |             Версия Debian             |
+| :-------------------------: | :-----------------------------------: |
+| ![Astra 1.6][astra-img-1.6] |  ![Debian][debian-stretch] (Stretch)  |
+| ![Astra 1.7][astra-img-1.7] |   ![Debian][debian-buster] (Buster)   |
+| ![Astra 1.8][astra-img-1.8] | ![Debian][debian-bookworm] (Bookworm) |
 
 </div>
+
+<!-- Ссылки вынесены вниз для уменьшения рендеринга таблицы. Данный подход является, своего рода, snippet -->
+[astra-img-1.6]: https://img.shields.io/badge/Astra-1.7.x-00ADD8?style=flat&logo=astra&logoColor=white
+[astra-img-1.7]: https://img.shields.io/badge/Astra-1.7.x-00ADD8?style=flat&logo=astra&logoColor=white
+[astra-img-1.8]: https://img.shields.io/badge/Astra-1.8.x-00ADD8?style=flat&logo=astra&logoColor=white
+[debian-stretch]: https://img.shields.io/badge/Debian-9-D70A53?style=flat&logo=debian&logoColor=white
+[debian-buster]: https://img.shields.io/badge/Debian-10-D70A53?style=flat&logo=debian&logoColor=white
+[debian-bookworm]: https://img.shields.io/badge/Debian-12-D70A53?style=flat&logo=debian&logoColor=white
+[supported-img]: https://img.shields.io/badge/Supported-%230db7ed.svg?logo=Docker&style=for-the-badge&logoColor=white
 
 <div align="center"> <sub> Таблица 2. Соотношений Astra Linux и Debian. </sub> </div>
 <p>&nbsp;</p>
@@ -290,12 +299,12 @@ pre-commit installed at .git/hooks/pre-push
 
 Процесс сертификации выглядит весьма не однозначным, поэтому для этого будет посвящен целый раздел тут. Пообщавшись с технической поддержкой, предоставляю краткую выжимку ответов из серии **В**опрос - **О**твет. Данные ответов приведены за *17 марта 2026*. Текст вопросов будет слегка изменён, но отражает туже суть
 
-1. Про [реестр образов](https://registry.astralinux.ru/latest/descriptions/local/containers/)
+1. Про [реестр образов][astra-img-registry]
 
     - В: Является ли Ваш реестр образов сертифицируемым?
     - О: Эти образы не являются сертифицированным изделием и в поставку с Astra Linux Special Edition не входят.
 
-2. Про самосборки образов из [официальных статей](https://wiki.astralinux.ru/pages/viewpage.action?pageId=137563067)
+2. Про самосборки образов из [официальных статей][docker-img-by-astra-img]
 
     - В: Считаются ли образы, которые собраны посредством статьи приемлемыми для прохождения сертификации в ФСТЭК и могут ли они соответствовать формуляру ОС Астра Linux?
     - О: Сборка образов, реализованная за счёт эксплуатационной документации и базы знаний, способствует прохождению сертификации и обеспечит реализацию необходимых требований. Среди них, в том числе, требования об использовании сертифицированной среды контейнеризации.
@@ -303,24 +312,39 @@ pre-commit installed at .git/hooks/pre-push
 3. Про официальные сертифицированные образы ОС Астра Linux
 
     - В: Есть ли официальные образы от ОС Астра Linux, которые прошли сертификацию? где взять?
-    - О: Образов, прошедших сертификацию, нет. Требования документа «Требования по безопасности информации. Утверждены приказом ФСТЭК России от 4 июля 2022 г. № 118» относятся к средству контейнеризации, а не к UBI-образам. Для операционной системы Astra Linux Special Edition выполнение приказа ФСТЭК России № 118 выполняется и подтверждается сертификатом ФСТЭК России № 2557. Сервисные пакеты, используемые при сборке, берутся из репозиториев операционной системы Astra Linux, которые проходят соответствующие проверки. Более подробно о репозиториях и их проверках Вы можете узнать на ресурсах: [для 1.7](https://wiki.astralinux.ru/pages/viewpage.action?pageId=149062354) и [для 1.8](https://wiki.astralinux.ru/pages/viewpage.action?pageId=302028564)
+    - О: Образов, прошедших сертификацию, нет. Требования документа «Требования по безопасности информации. Утверждены приказом ФСТЭК России от 4 июля 2022 г. № 118» относятся к средству контейнеризации, а не к UBI-образам. Для операционной системы Astra Linux Special Edition выполнение приказа ФСТЭК России № 118 выполняется и подтверждается сертификатом ФСТЭК России № 2557. Сервисные пакеты, используемые при сборке, берутся из репозиториев операционной системы Astra Linux, которые проходят соответствующие проверки. Более подробно о репозиториях и их проверках Вы можете узнать на ресурсах: [для 1.7][astra-1.7-repo-info] и [для 1.8][astra-1.8-repo-info]
 
 4. Про самосборки образов и их модификации для прохождения сертификации
 
-    - В: Тех инструкций, что вы поставляете на вики, хватит для сборки такого? если нет, то как осуществить их соответствие сертифицируемому изделию? если собирать на сертифицируемой ОС Астра Linux, то это равно собрать сертифицируемый образ? формуляр можно использовать от сертифицируемой ОС Астра Linux как сравнение с референс? какие-то особенности сборки на сертифицируемой ОС Астра Linux есть для образов? если мы вносим изменения в сертифицируемый образ, то сертификация остается(вырезаем пакеты, правим конфиги)?
+    - В: Тех инструкций, что вы поставляете на вики, хватит для сборки такого?
+    - В: Если нет, то как осуществить их соответствие сертифицируемому изделию?
+    - В: Если собирать на сертифицируемой ОС Астра Linux, то это равно собрать сертифицируемый образ?
+    - В: Формуляр можно использовать от сертифицируемой ОС Астра Linux как сравнение с референс?
+    - В: Какие-то особенности сборки на сертифицируемой ОС Астра Linux есть для образов?
+    - В: Если мы вносим изменения в сертифицируемый образ, то сертификация остается(вырезаем пакеты, правим конфиги)?
     - О: При проведении разработки СрЗИ с использованием контейнеров сертифицированной ОС необходимо учитывать следующие важные ресурсы:
-    - О: 1. Разработка приложения должна осуществляться с учетом документа "Методические рекомендации по исключению влияния на функции безопасности операционной системы специального назначения «Astra Linux Special Edition» при проектировании, разработке и эксплуатации программного обеспечения". Дополнительная информация о технический ограничениях и пакетах реализующих функции безопасности представлена в Справочном центре: [Использование стороннего программного обеспечения в аттестованных информационных системах, функционирующих под управлением Astra Linux Special Edition 1.8.](https://wiki.astralinux.ru/pages/viewpage.action?pageId=323682032)
+    - О: 1. Разработка приложения должна осуществляться с учетом документа - Методические рекомендации по исключению влияния на функции безопасности операционной системы специального назначения Astra Linux Special Edition при проектировании, разработке и эксплуатации программного обеспечения. Дополнительная информация о технический ограничениях и пакетах реализующих функции безопасности представлена в Справочном центре: [Использование стороннего программного обеспечения в аттестованных информационных системах, функционирующих под управлением Astra Linux Special Edition 1.8.][astra-1.8-3rd-soft-party]
     - О: 2. Сборка осуществляется в строгом в соответствии с эксплуатационной документацией. Основные положения сборки выделены в документах: "Руководство администратора. Часть 1. РУСБ.10015-01 95 01-1" (10.1.2.1. Создание образа Docker) и "Руководство по КСЗ. Часть 1. РУСБ.10015-01 97 01-1"(создание и защиты изолированных программных сред (контейнеров)). Кроме того, разрабатываемое СЗИ рекомендуется разрабатывать таким образом, чтобы они были интернированы во встроенные СрЗИ ОС Astra Linux. Разрабатываемому ПО рекомендуется функционировать в условиях ограничения программной среды ОС (в «режиме замкнутой программной среды»), а также функционировать в условиях мандатного контроля целостности (МКЦ) ОС.
-    - О: 3.Для обеспечения гарантированной совместимости с экосистемой «Группы Астра» рекомендуется провести тестирование приложения по программе [Ready for Astra](https://docs.astralinux.ru/latest/rfa/).
+    - О: 3.Для обеспечения гарантированной совместимости с экосистемой «Группы Астра» рекомендуется провести тестирование приложения по программе [Ready for Astra][astra-rfa].
     - О: Дополнительные ресурсы:
-    - О: - [База знаний](https://wiki.astralinux.ru/kb/docker-153490263.html);
-    - О: - Информационное письмо ФСТЭК. "О повышении безопасности средств защиты информации, в состав которых разработчики включают средства контейнеризации или образы контейнеров" от 13 января 2025 г. N 240/24/38: [Информационное сообщение ФСТЭК России от 13 января 2025 г. N 240/24/38](https://fstec.ru/dokumenty/vse-dokumenty/informatsionnye-i-analiticheskie-materialy/informatsionnoe-soobshchenie-fstek-rossii-ot-13-yanvarya-2025-g-n-240-24-38);
-    - О: - [Использование стороннего программного обеспечения в аттестованных информационных системах, функционирующих под управлением Astra Linux Special Edition 1.8](https://wiki.astralinux.ru/pages/viewpage.action?pageId=323682032).
+    - О: - [База знаний][astra-knoweleage-resource];
+    - О: - Информационное письмо ФСТЭК. "О повышении безопасности средств защиты информации, в состав которых разработчики включают средства контейнеризации или образы контейнеров" от 13 января 2025 г. N 240/24/38: [Информационное сообщение ФСТЭК России от 13 января 2025 г. N 240/24/38][fstec-order];
+    - О: - [Использование стороннего программного обеспечения в аттестованных информационных системах, функционирующих под управлением Astra Linux Special Edition 1.8][astra-1.8-3rd-soft-party].
 
 Также прикрепляю полезную информацию о:
 
 - [Состав репозиториев ОС Астра Linux](https://wiki.astralinux.ru/pages/viewpage.action?pageId=3276917#id-СписокпакетовОСAstraLinuxSpecialEdition-Основнойрепозиторий)
 - [Патч репозитории для устранения уязвимостей ОС Астра Linux](https://wiki.astralinux.ru/pages/viewpage.action?pageId=461742397)
+
+<!-- Ссылки вынесены вниз для уменьшения рендеринга. Данный подход является, своего рода, snippet -->
+[astra-1.7-repo-info]: https://wiki.astralinux.ru/pages/viewpage.action?pageId=149062354
+[astra-1.8-repo-info]: https://wiki.astralinux.ru/pages/viewpage.action?pageId=302028564
+[astra-1.8-3rd-soft-party]: https://wiki.astralinux.ru/pages/viewpage.action?pageId=323682032
+[astra-rfa]: https://docs.astralinux.ru/latest/rfa/
+[astra-knoweleage-resource]: https://wiki.astralinux.ru/kb/docker-153490263.html
+[fstec-order]: https://fstec.ru/dokumenty/vse-dokumenty/informatsionnye-i-analiticheskie-materialy/informatsionnoe-soobshchenie-fstek-rossii-ot-13-yanvarya-2025-g-n-240-24-38
+[astra-img-registry]: https://registry.astralinux.ru/latest/descriptions/local/containers/
+[docker-img-by-astra-img]: https://wiki.astralinux.ru/pages/viewpage.action?pageId=137563067
 
 После генерации образа:
 
@@ -683,7 +707,7 @@ Environment="DOCKER_OPTS=--astra-sec-level 6"
 
 <div align="center"> <sub> Mystical Wanderer in the forge of Skyrim. </sub> </div>
 
-### [Cya!](#contents)
+### [Cya](#contents)
 
 </td></tr></table>
 <!-- markdownlint-enable MD033 MD041 MD051 -->
