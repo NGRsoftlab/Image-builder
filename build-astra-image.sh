@@ -445,6 +445,7 @@ __rootfs_chroot() {
     LC_ALL=C.UTF-8 \
     TZ=Etc/UTC \
     MALLOC_ARENA_MAX=2 \
+    DEBIAN_FRONTEND=noninteractive \
     "${chroot_path}" \
     "${ROOTFS_DIR}" "$@"
 }
@@ -754,6 +755,16 @@ EOF
 # https://aptitude.alioth.debian.org/doc/en/ch02s05s05.html#configApt-AutoRemove-SuggestsImportant
 
 Apt::AutoRemove::SuggestsImportant "false";
+EOF
+
+    cat >"${ROOTFS_DIR}/etc/apt/apt.conf.d/99-ci-config" <<-'EOF'
+# Disable warnings by:
+# Download is performed unsandboxed as root as file ...
+# couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+# And disable /dev/pts device for apt
+
+Dir::Log::Terminal "";
+APT::Sandbox::User "root";
 EOF
   fi
 
@@ -1570,11 +1581,30 @@ build() {
   ## Update cache in chroot
   __rootfs_chroot apt-get update
 
+  ## Set license file
+  if [[ -z ${SCF_LICENSE_FILE:-} ]]; then
+    cp -f configuration/astra_license "${ROOTFS_DIR}/etc/astra_license"
+  else
+    printf '%s\n' "${SCF_LICENSE_FILE:-}" >"${ROOTFS_DIR}/etc/astra_license"
+  fi
+  chmod 644 "${ROOTFS_DIR}/etc/astra_license"
+
   ## Install actual hotfix update
   __rootfs_chroot \
     apt-get install -y --no-install-recommends astra-update
+
+  ## Pass pseudo-terminal and prevent error:
+  ## "script: failed to create pseudo-terminal: No such device"
+  mkdir -p "${ROOTFS_DIR}/dev/pts"
+  mount --bind /dev/pts "${ROOTFS_DIR}/dev/pts"
+  mknod -m 666 "${ROOTFS_DIR}/dev/ptmx" c 5 2 || true
+
+  ## Update to actual system with hotfixes
   __rootfs_chroot astra-update -A -r -T
   __rootfs_chroot cat /etc/astra/hotfix_version
+
+  ## Unmount device
+  umount "${ROOTFS_DIR}/dev/pts" || true
 
   ## Generate sbom if certified
   mkdir -p "${ROOTFS_DIR}/usr/share/rocks"
