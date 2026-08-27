@@ -394,9 +394,9 @@ __cleanup() {
   logger_info_message "back to ${HOME}"
   pushd "${HOME}" >/dev/null || true
 
-  ## Debootstrap leaves mounted /proc and /sys folders in chroot
+  ## Debootstrap leaves mounted /proc, /sys and /dev/pts folders in chroot
   logger_info_message "unmount existing folders"
-  umount "${ROOTFS_DIR}/proc" "${ROOTFS_DIR}/sys" >/dev/null 2>/dev/null \
+  umount "${ROOTFS_DIR}/dev/pts" "${ROOTFS_DIR}/proc" "${ROOTFS_DIR}/sys" >/dev/null 2>/dev/null \
     || true
 
   ## Remove temp dir
@@ -1601,7 +1601,7 @@ build() {
 
   ## Update to actual system with hotfixes
   __rootfs_chroot astra-update -A -r -T
-  __rootfs_chroot cat /etc/astra/hotfix_version
+  __rootfs_chroot cat /etc/astra/hotfix_version || true
 
   ## Unmount device
   umount "${ROOTFS_DIR}/dev/pts" || true
