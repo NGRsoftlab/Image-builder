@@ -1601,7 +1601,12 @@ build() {
 
   ## Update to actual system with hotfixes
   __rootfs_chroot astra-update -A -r -T
-  __rootfs_chroot cat /etc/astra/hotfix_version || true
+  case "${BUILD_TAG}" in
+    1.7.*) ;;
+    *)
+      __rootfs_chroot cat /etc/astra/hotfix_version
+      ;;
+  esac
 
   ## Unmount device
   umount "${ROOTFS_DIR}/dev/pts" || true
