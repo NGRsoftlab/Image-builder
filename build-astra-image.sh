@@ -1601,7 +1601,7 @@ build() {
 
   ## Update to actual system with hotfixes
   __rootfs_chroot astra-update -A -r -T
-  case "${BUILD_TAG}" in
+  case "${SCF_TAG_NAME}" in
     1.7.*) ;;
     *)
       __rootfs_chroot cat /etc/astra/hotfix_version
