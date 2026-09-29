@@ -1495,7 +1495,7 @@ build() {
   [[ -d ${build_dir} ]] || mkdir -p "${build_dir}"
 
   case "${SCF_TAG_NAME}" in
-    1.8.x | 1.8.5 | 1.8.4 | 1.8.3 | 1.8.2 | 1.8.1)
+    1.8.x | 1.8.6 | 1.8.5 | 1.8.4 | 1.8.3 | 1.8.2 | 1.8.1)
       debootstrap_arch_args+=(
         "--components=main,contrib,non-free,non-free-firmware"
       )
@@ -1509,7 +1509,7 @@ build() {
         )
       fi
       ;;
-    1.7.x | 1.7.9 | 1.7.8 | 1.7.7 | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
+    1.7.x | 1.7.11 | 1.7.10 | 1.7.9 | 1.7.8 | 1.7.7 | 1.7.6 | 1.7.5 | 1.7.4 | 1.7.3 | 1.7.2)
       debootstrap_arch_args+=(
         "--components=main,contrib,non-free"
       )
@@ -1602,9 +1602,11 @@ build() {
   ## Update to actual system with hotfixes
   __rootfs_chroot astra-update -A -r -T
   case "${SCF_TAG_NAME}" in
-    1.7.*) : ;;
+    1.7.*)
+      true
+      ;;
     *)
-      __rootfs_chroot cat /etc/astra/hotfix_version
+      __rootfs_chroot cat /etc/astra/hotfix_version || true
       ;;
   esac
 
